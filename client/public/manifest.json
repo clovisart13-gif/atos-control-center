@@ -1,0 +1,20 @@
+{
+  "name": "Atos Control Center",
+  "short_name": "Atos",
+  "description": "Mentor Cognitivo — Interface de controle",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#111116",
+  "theme_color": "#111116",
+  "icons": [
+    {
+      "src": "https://d2xsxph8kpxj0f.cloudfront.net/310519663223964056/bhtqDJFFjSGsprAUaorMVq/atos-logo-HPt6rtrQXKaVutKyQBpiHH.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "utilities"],
+  "lang": "pt-BR"
+}

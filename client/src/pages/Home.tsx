@@ -1,25 +1,79 @@
-import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
-import { Streamdown } from 'streamdown';
-
 /**
- * All content in this page are only for example, replace with your own feature implementation
- * When building pages, remember your instructions in Frontend Best Practices, Design Guide and Common Pitfalls
+ * Home — Página principal do Atos Control Center
+ * Design: Obsidian Forge — layout vertical full-screen com chat
+ * Mobile-first, scroll automático, PWA-ready
  */
+import { useRef, useEffect, useState, useCallback } from "react";
+import { useChat } from "@/hooks/useChat";
+import ChatHeader from "@/components/ChatHeader";
+import ChatMessageBubble from "@/components/ChatMessage";
+import ChatInput from "@/components/ChatInput";
+import ThinkingIndicator from "@/components/ThinkingIndicator";
+import WelcomeScreen from "@/components/WelcomeScreen";
+import type { Attachment } from "@/lib/types";
+
 export default function Home() {
-  // If theme is switchable in App.tsx, we can implement theme toggling like this:
-  // const { theme, toggleTheme } = useTheme();
+  const { messages, isLoading, sendMessage, clearHistory } = useChat();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [initialMessage, setInitialMessage] = useState<string | undefined>();
+
+  // Scroll automático para a última mensagem
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, isLoading]);
+
+  const handleSend = useCallback(
+    (message: string, attachments?: Attachment[]) => {
+      sendMessage(message, attachments);
+      setInitialMessage(undefined);
+    },
+    [sendMessage]
+  );
+
+  const handleSuggestionClick = useCallback((text: string) => {
+    setInitialMessage(text);
+  }, []);
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <main>
-        {/* Example: lucide-react for icons */}
-        <Loader2 className="animate-spin" />
-        Example Page
-        {/* Example: Streamdown for markdown rendering */}
-        <Streamdown>Any **markdown** content</Streamdown>
-        <Button variant="default">Example Button</Button>
-      </main>
+    <div className="h-dvh flex flex-col bg-background overflow-hidden">
+      {/* Header */}
+      <ChatHeader
+        onClearHistory={clearHistory}
+        messageCount={messages.length}
+      />
+
+      {/* Área de mensagens */}
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto overscroll-contain"
+      >
+        {messages.length === 0 ? (
+          <WelcomeScreen onSuggestionClick={handleSuggestionClick} />
+        ) : (
+          <div className="flex flex-col gap-4 px-3 sm:px-4 py-4 max-w-4xl mx-auto">
+            {messages.map((msg) => (
+              <ChatMessageBubble key={msg.id} message={msg} />
+            ))}
+
+            {isLoading && <ThinkingIndicator />}
+
+            {/* Âncora para scroll automático */}
+            <div ref={messagesEndRef} className="h-1" />
+          </div>
+        )}
+      </div>
+
+      {/* Input */}
+      <div className="max-w-4xl mx-auto w-full">
+        <ChatInput
+          onSend={handleSend}
+          isLoading={isLoading}
+          initialMessage={initialMessage}
+        />
+      </div>
     </div>
   );
 }
