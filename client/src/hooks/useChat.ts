@@ -5,7 +5,6 @@ import { APP_CONFIG } from "@shared/const";
 
 /**
  * Obtém a URL do webhook dinamicamente
- * Prioridade: localStorage > variável de ambiente > window global
  */
 function getWebhookUrl(): string {
   const fromStorage = localStorage.getItem("atos-webhook-url");
@@ -23,23 +22,23 @@ function getWebhookUrl(): string {
 
 /**
  * Extrai a resposta do webhook de forma flexível.
- * Aceita:
- * - JSON com campo "reply": { "reply": "texto" }
- * - JSON com campo "output": { "output": "texto" }
- * - JSON com campo "text": { "text": "texto" }
- * - JSON com campo "message": { "message": "texto" }
- * - JSON com campo "response": { "response": "texto" }
- * - JSON array: [{ "output": "texto" }]
- * - Texto puro: "resposta direta"
- * - Qualquer outro JSON: converte para string
+ * Retorna tanto o texto extraído quanto o debug da resposta bruta.
  */
-async function extractReply(response: Response): Promise<string> {
+async function extractReply(response: Response): Promise<{ reply: string; debug: string }> {
   // Lê o corpo da resposta como texto primeiro
   const rawText = await response.text();
 
+  // Info de debug
+  const statusInfo = `Status: ${response.status} ${response.statusText}`;
+  const contentType = response.headers.get("content-type") || "não informado";
+  const debugInfo = `${statusInfo}\nContent-Type: ${contentType}\nCorpo bruto (${rawText.length} chars):\n\`\`\`\n${rawText || "(vazio)"}\n\`\`\``;
+
   // Se a resposta estiver vazia
   if (!rawText || rawText.trim() === "") {
-    return "✅ Mensagem recebida pelo servidor (resposta vazia).";
+    return {
+      reply: "",
+      debug: debugInfo,
+    };
   }
 
   // Tenta parsear como JSON
@@ -50,7 +49,7 @@ async function extractReply(response: Response): Promise<string> {
     const obj = Array.isArray(data) ? data[0] : data;
 
     if (typeof obj === "string") {
-      return obj;
+      return { reply: obj, debug: debugInfo };
     }
 
     if (typeof obj === "object" && obj !== null) {
@@ -70,21 +69,20 @@ async function extractReply(response: Response): Promise<string> {
       for (const field of possibleFields) {
         if (obj[field] !== undefined && obj[field] !== null) {
           const value = obj[field];
-          if (typeof value === "string") return value;
-          if (typeof value === "object") return JSON.stringify(value, null, 2);
-          return String(value);
+          if (typeof value === "string") return { reply: value, debug: debugInfo };
+          if (typeof value === "object") return { reply: JSON.stringify(value, null, 2), debug: debugInfo };
+          return { reply: String(value), debug: debugInfo };
         }
       }
 
       // Se nenhum campo conhecido, retorna o JSON formatado
-      return JSON.stringify(obj, null, 2);
+      return { reply: JSON.stringify(obj, null, 2), debug: debugInfo };
     }
 
-    // Qualquer outro tipo
-    return String(data);
+    return { reply: String(data), debug: debugInfo };
   } catch {
     // Não é JSON — retorna como texto puro
-    return rawText.trim();
+    return { reply: rawText.trim(), debug: debugInfo };
   }
 }
 
@@ -104,7 +102,6 @@ function loadHistory(): ChatMessage[] {
 
 function saveHistory(messages: ChatMessage[]) {
   try {
-    // Mantém no máximo 200 mensagens no localStorage
     const toSave = messages.slice(-200);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
   } catch {
@@ -118,7 +115,6 @@ export function useChat() {
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Salva histórico sempre que as mensagens mudam
   useEffect(() => {
     saveHistory(messages);
   }, [messages]);
@@ -129,7 +125,6 @@ export function useChat() {
 
       setError(null);
 
-      // Cria mensagem do usuário
       const userMessage: ChatMessage = {
         id: nanoid(),
         role: "user",
@@ -142,7 +137,6 @@ export function useChat() {
       setIsLoading(true);
 
       try {
-        // Monta payload para o webhook
         const payload: WebhookPayload = {
           user_id: APP_CONFIG.userId,
           message: content.trim(),
@@ -155,23 +149,20 @@ export function useChat() {
           }));
         }
 
-        // Cancela requisição anterior se existir
         if (abortRef.current) {
           abortRef.current.abort();
         }
         abortRef.current = new AbortController();
 
-        // Obtém URL do webhook dinamicamente
         const webhookUrl = getWebhookUrl();
 
         if (!webhookUrl) {
-          // Modo demo quando não há webhook configurado
           await new Promise((r) => setTimeout(r, 1500));
           const assistantMessage: ChatMessage = {
             id: nanoid(),
             role: "assistant",
             content:
-              '⚠️ **Webhook não configurado.** Clique no ícone de ⚙️ **Configurações** no canto superior direito para inserir a URL do webhook do n8n.\n\nFormato esperado:\n```\nhttps://seu-n8n.com/webhook/seu-id\n```',
+              '⚠️ **Webhook não configurado.** Clique no ícone de ⚙️ **Configurações** no canto superior direito para inserir a URL do webhook do n8n.',
             timestamp: Date.now(),
           };
           setMessages((prev) => [...prev, assistantMessage]);
@@ -189,16 +180,29 @@ export function useChat() {
         });
 
         if (!response.ok) {
-          throw new Error(`Erro do servidor: ${response.status} ${response.statusText}`);
+          // Mesmo com erro, tenta ler o corpo
+          const errorBody = await response.text().catch(() => "(não foi possível ler)");
+          throw new Error(
+            `Erro ${response.status} ${response.statusText}\nCorpo: ${errorBody}`
+          );
         }
 
-        // Extrai resposta de forma flexível (aceita JSON, texto, vazio)
-        const replyText = await extractReply(response);
+        // Extrai resposta de forma flexível
+        const { reply, debug } = await extractReply(response);
+
+        let finalContent: string;
+
+        if (reply) {
+          finalContent = reply;
+        } else {
+          // Resposta vazia — mostra debug para ajudar a diagnosticar
+          finalContent = `⚠️ **O servidor respondeu, mas sem conteúdo de texto.**\n\n**Diagnóstico da resposta:**\n${debug}\n\n**Possíveis causas:**\n- O nó "Webhook" no n8n está com "Respond" em "Immediately" (responde antes do modelo processar)\n- O nó "Message a model" não está conectado à resposta do webhook\n\n**Solução:**\n1. No nó **Webhook**, mude "Respond" para **"Using Last Node"**\n2. Certifique-se que o último nó do fluxo é o **"Message a model"** ou um nó que contenha a resposta`;
+        }
 
         const assistantMessage: ChatMessage = {
           id: nanoid(),
           role: "assistant",
-          content: replyText,
+          content: finalContent,
           timestamp: Date.now(),
         };
 
@@ -206,14 +210,13 @@ export function useChat() {
       } catch (err: any) {
         if (err.name === "AbortError") return;
 
-        const errorMsg =
-          err.message || "Erro ao comunicar com o servidor.";
+        const errorMsg = err.message || "Erro ao comunicar com o servidor.";
         setError(errorMsg);
 
         const errorMessage: ChatMessage = {
           id: nanoid(),
           role: "assistant",
-          content: `❌ **Erro de comunicação:** ${errorMsg}\n\nVerifique a conexão e a URL do webhook nas configurações.`,
+          content: `❌ **Erro de comunicação:**\n\n${errorMsg}\n\nVerifique a conexão e a URL do webhook nas configurações.`,
           timestamp: Date.now(),
         };
         setMessages((prev) => [...prev, errorMessage]);
