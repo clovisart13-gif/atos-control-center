@@ -10,7 +10,7 @@ import {
   Mic,
   MicOff,
   X,
-  Image as ImageIcon,
+  Camera,
   FileText,
   Square,
 } from "lucide-react";
@@ -42,6 +42,7 @@ export default function ChatInput({ onSend, isLoading, initialMessage }: ChatInp
   const [isTranscribing, setIsTranscribing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const {
     isRecording,
@@ -245,7 +246,25 @@ export default function ChatInput({ onSend, isLoading, initialMessage }: ChatInp
 
       {/* Input principal */}
       <div className="flex items-end gap-2 p-2 rounded-2xl bg-surface-elevated/80 border border-border backdrop-blur-sm shadow-lg shadow-black/20">
-        {/* Botão de anexo */}
+        {/* Botão de câmera — abre câmera diretamente */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 flex-shrink-0 text-muted-foreground hover:text-primary"
+              onClick={() => cameraInputRef.current?.click()}
+              disabled={isRecording || isLoading}
+            >
+              <Camera className="w-5 h-5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="top">
+            <p>Tirar foto</p>
+          </TooltipContent>
+        </Tooltip>
+
+        {/* Botão de anexo — galeria e PDF */}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -259,7 +278,7 @@ export default function ChatInput({ onSend, isLoading, initialMessage }: ChatInp
             </Button>
           </TooltipTrigger>
           <TooltipContent side="top">
-            <p>Anexar imagem ou PDF</p>
+            <p>Anexar da galeria ou PDF</p>
           </TooltipContent>
         </Tooltip>
 
@@ -268,6 +287,16 @@ export default function ChatInput({ onSend, isLoading, initialMessage }: ChatInp
           type="file"
           accept="image/jpeg,image/png,application/pdf"
           multiple
+          onChange={handleFileSelect}
+          className="hidden"
+        />
+
+        {/* Input de câmera — abre câmera diretamente no celular */}
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/jpeg,image/png"
+          capture="environment"
           onChange={handleFileSelect}
           className="hidden"
         />
