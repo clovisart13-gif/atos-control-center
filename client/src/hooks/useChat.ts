@@ -21,6 +21,73 @@ function getWebhookUrl(): string {
   return "";
 }
 
+/**
+ * Extrai a resposta do webhook de forma flexível.
+ * Aceita:
+ * - JSON com campo "reply": { "reply": "texto" }
+ * - JSON com campo "output": { "output": "texto" }
+ * - JSON com campo "text": { "text": "texto" }
+ * - JSON com campo "message": { "message": "texto" }
+ * - JSON com campo "response": { "response": "texto" }
+ * - JSON array: [{ "output": "texto" }]
+ * - Texto puro: "resposta direta"
+ * - Qualquer outro JSON: converte para string
+ */
+async function extractReply(response: Response): Promise<string> {
+  // Lê o corpo da resposta como texto primeiro
+  const rawText = await response.text();
+
+  // Se a resposta estiver vazia
+  if (!rawText || rawText.trim() === "") {
+    return "✅ Mensagem recebida pelo servidor (resposta vazia).";
+  }
+
+  // Tenta parsear como JSON
+  try {
+    const data = JSON.parse(rawText);
+
+    // Se for um array, pega o primeiro item
+    const obj = Array.isArray(data) ? data[0] : data;
+
+    if (typeof obj === "string") {
+      return obj;
+    }
+
+    if (typeof obj === "object" && obj !== null) {
+      // Tenta os campos mais comuns em ordem de prioridade
+      const possibleFields = [
+        "reply",
+        "output",
+        "text",
+        "message",
+        "response",
+        "content",
+        "result",
+        "answer",
+        "data",
+      ];
+
+      for (const field of possibleFields) {
+        if (obj[field] !== undefined && obj[field] !== null) {
+          const value = obj[field];
+          if (typeof value === "string") return value;
+          if (typeof value === "object") return JSON.stringify(value, null, 2);
+          return String(value);
+        }
+      }
+
+      // Se nenhum campo conhecido, retorna o JSON formatado
+      return JSON.stringify(obj, null, 2);
+    }
+
+    // Qualquer outro tipo
+    return String(data);
+  } catch {
+    // Não é JSON — retorna como texto puro
+    return rawText.trim();
+  }
+}
+
 const STORAGE_KEY = APP_CONFIG.localStorageKey;
 
 function loadHistory(): ChatMessage[] {
@@ -122,15 +189,16 @@ export function useChat() {
         });
 
         if (!response.ok) {
-          throw new Error(`Erro do servidor: ${response.status}`);
+          throw new Error(`Erro do servidor: ${response.status} ${response.statusText}`);
         }
 
-        const data = await response.json();
+        // Extrai resposta de forma flexível (aceita JSON, texto, vazio)
+        const replyText = await extractReply(response);
 
         const assistantMessage: ChatMessage = {
           id: nanoid(),
           role: "assistant",
-          content: data.reply || "Sem resposta do mentor.",
+          content: replyText,
           timestamp: Date.now(),
         };
 
