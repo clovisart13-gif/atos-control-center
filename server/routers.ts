@@ -3,6 +3,9 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
+import { storagePut } from "./storage";
+import { transcribeAudio } from "./_core/voiceTranscription";
+import { TRPCError } from "@trpc/server";
 
 export const appRouter = router({
   system: systemRouter,
@@ -58,22 +61,43 @@ export const appRouter = router({
           throw new Error(`Webhook retornou erro ${response.status}: ${rawText}`);
         }
 
+        // Log para debug
+        console.log("[Webhook Proxy] Status:", response.status);
+        console.log("[Webhook Proxy] Raw response:", rawText.substring(0, 500));
+
         // Tenta parsear como JSON
         if (rawText && rawText.trim()) {
           try {
-            const data = JSON.parse(rawText);
+            let data = JSON.parse(rawText);
+
+            // Se o resultado for uma string, pode ser JSON duplo (JSON.stringify dentro do n8n)
+            if (typeof data === "string") {
+              try { data = JSON.parse(data); } catch { return { reply: data }; }
+            }
+
+            // Se for array, pega o primeiro elemento
             const obj = Array.isArray(data) ? data[0] : data;
 
             if (typeof obj === "string") return { reply: obj };
 
             if (typeof obj === "object" && obj !== null) {
+              // Busca recursiva nos campos mais comuns
               const fields = ["reply", "output", "text", "message", "response", "content", "result", "answer", "data"];
               for (const field of fields) {
                 if (obj[field] !== undefined && obj[field] !== null) {
                   const val = obj[field];
+                  // Se o valor for um array (ex: content[0].text do OpenAI)
+                  if (Array.isArray(val) && val.length > 0) {
+                    const first = val[0];
+                    if (typeof first === "string") return { reply: first };
+                    if (first?.text) return { reply: first.text };
+                    if (first?.content) return { reply: first.content };
+                  }
                   return { reply: typeof val === "string" ? val : JSON.stringify(val, null, 2) };
                 }
               }
+              // Nenhum campo conhecido — retorna o JSON formatado para debug
+              console.log("[Webhook Proxy] Unknown structure:", JSON.stringify(obj));
               return { reply: JSON.stringify(obj, null, 2) };
             }
 
@@ -85,6 +109,92 @@ export const appRouter = router({
         }
 
         return { reply: "" };
+      }),
+  }),
+
+  /**
+   * Transcrição de áudio com Whisper API via backend.
+   * Fluxo: frontend envia blob base64 → backend faz upload para S3 → chama Whisper → retorna texto.
+   */
+  voice: router({
+    transcribe: publicProcedure
+      .input(
+        z.object({
+          // Áudio em base64 (sem prefixo data:...)
+          audioBase64: z.string(),
+          // Tipo MIME do áudio (ex: audio/webm)
+          mimeType: z.string().default("audio/webm"),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const { audioBase64, mimeType } = input;
+
+        // 1. Decodifica base64 para Buffer
+        let audioBuffer: Buffer;
+        try {
+          audioBuffer = Buffer.from(audioBase64, "base64");
+        } catch {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Dados de áudio inválidos.",
+          });
+        }
+
+        // Verifica tamanho (máx 16MB)
+        const sizeMB = audioBuffer.length / (1024 * 1024);
+        if (sizeMB > 16) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `Áudio muito grande (${sizeMB.toFixed(1)}MB). Máximo permitido: 16MB.`,
+          });
+        }
+
+        // 2. Faz upload para S3 para obter URL pública
+        const ext = mimeType.includes("webm") ? "webm"
+          : mimeType.includes("mp4") ? "mp4"
+          : mimeType.includes("ogg") ? "ogg"
+          : mimeType.includes("wav") ? "wav"
+          : mimeType.includes("mp3") || mimeType.includes("mpeg") ? "mp3"
+          : "webm";
+
+        const fileKey = `audio-transcriptions/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+
+        let audioUrl: string;
+        try {
+          const uploaded = await storagePut(fileKey, audioBuffer, mimeType);
+          audioUrl = uploaded.url;
+          console.log("[Voice] Áudio enviado para S3:", audioUrl);
+        } catch (err) {
+          console.error("[Voice] Erro no upload para S3:", err);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Erro ao fazer upload do áudio. Tente novamente.",
+          });
+        }
+
+        // 3. Transcreve com Whisper
+        const result = await transcribeAudio({
+          audioUrl,
+          language: "pt",
+          prompt: "Transcreva a fala do usuário em português brasileiro.",
+        });
+
+        // Verifica se houve erro
+        if ("error" in result) {
+          console.error("[Voice] Erro na transcrição:", result);
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: `Erro na transcrição: ${result.error}`,
+          });
+        }
+
+        console.log("[Voice] Transcrição concluída:", result.text.substring(0, 100));
+
+        return {
+          text: result.text,
+          language: result.language,
+          duration: result.duration,
+        };
       }),
   }),
 });

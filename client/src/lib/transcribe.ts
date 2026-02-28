@@ -1,125 +1,67 @@
 /**
- * Transcrição de áudio para texto usando Web Speech API
- * Fallback: envia o áudio como blob para o webhook processar
+ * Transcrição de áudio para texto usando Whisper API via backend.
+ * O blob de áudio é convertido para base64 e enviado para a rota tRPC voice.transcribe,
+ * que faz upload para S3 e chama o Whisper — suporta áudios longos com alta precisão.
  */
+// Usa fetch direto para não depender de hooks React
+export async function transcribeAudioWithWhisper(blob: Blob): Promise<string> {
+  // Converte Blob para base64
+  const base64 = await blobToBase64(blob);
+  const mimeType = blob.type || "audio/webm";
 
-export async function transcribeAudio(blob: Blob): Promise<string> {
-  // Tenta usar a Web Speech API (reconhecimento em tempo real)
-  if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
-    return new Promise((resolve, reject) => {
-      const SpeechRecognition =
-        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      const recognition = new SpeechRecognition();
+  // Chama a API tRPC via fetch direto (não precisa de hook React)
+  const response = await fetch("/api/trpc/voice.transcribe", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include",
+    body: JSON.stringify({
+      json: {
+        audioBase64: base64,
+        mimeType,
+      },
+    }),
+  });
 
-      recognition.lang = "pt-BR";
-      recognition.continuous = true;
-      recognition.interimResults = false;
-      recognition.maxAlternatives = 1;
-
-      const audioUrl = URL.createObjectURL(blob);
-      const audio = new Audio(audioUrl);
-
-      let transcript = "";
-
-      recognition.onresult = (event: any) => {
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          if (event.results[i].isFinal) {
-            transcript += event.results[i][0].transcript + " ";
-          }
-        }
-      };
-
-      recognition.onerror = (event: any) => {
-        // Se a Speech API falhar, retorna mensagem indicando áudio
-        resolve(transcript.trim() || "[Áudio gravado — transcrição não disponível]");
-      };
-
-      recognition.onend = () => {
-        URL.revokeObjectURL(audioUrl);
-        resolve(transcript.trim() || "[Áudio gravado — transcrição não disponível]");
-      };
-
-      // Inicia reconhecimento
-      try {
-        recognition.start();
-        // Reproduz o áudio para o reconhecimento captar
-        audio.play().catch(() => {
-          // Se não conseguir reproduzir, para o reconhecimento
-          recognition.stop();
-        });
-
-        // Timeout de segurança
-        audio.onended = () => {
-          setTimeout(() => recognition.stop(), 1000);
-        };
-
-        // Timeout máximo de 60 segundos
-        setTimeout(() => {
-          recognition.stop();
-          audio.pause();
-        }, 60000);
-      } catch {
-        resolve("[Áudio gravado — transcrição não disponível]");
-      }
-    });
+  if (!response.ok) {
+    const errText = await response.text().catch(() => "");
+    throw new Error(`Erro na transcrição (${response.status}): ${errText}`);
   }
 
-  // Fallback: retorna indicação de áudio
-  return "[Áudio gravado — transcrição não disponível neste navegador]";
+  const data = await response.json();
+
+  // tRPC retorna { result: { data: { json: { text, language, duration } } } }
+  const text =
+    data?.result?.data?.json?.text ??
+    data?.result?.data?.text ??
+    data?.text ??
+    "";
+
+  return text.trim();
 }
 
 /**
- * Transcrição em tempo real usando Web Speech API
- * Retorna uma instância controlável
+ * Converte um Blob para string base64 (sem o prefixo data:...)
  */
-export function createLiveTranscriber(
-  onResult: (text: string, isFinal: boolean) => void,
-  onError?: (error: string) => void
-) {
-  if (!("webkitSpeechRecognition" in window || "SpeechRecognition" in window)) {
-    onError?.("Reconhecimento de voz não suportado neste navegador.");
-    return null;
-  }
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      // Remove o prefixo "data:audio/webm;base64," para obter apenas o base64
+      const base64 = result.split(",")[1];
+      resolve(base64);
+    };
+    reader.onerror = () => reject(new Error("Erro ao ler arquivo de áudio."));
+    reader.readAsDataURL(blob);
+  });
+}
 
-  const SpeechRecognition =
-    (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-  const recognition = new SpeechRecognition();
-
-  recognition.lang = "pt-BR";
-  recognition.continuous = true;
-  recognition.interimResults = true;
-  recognition.maxAlternatives = 1;
-
-  let finalTranscript = "";
-
-  recognition.onresult = (event: any) => {
-    let interimTranscript = "";
-    for (let i = event.resultIndex; i < event.results.length; i++) {
-      const result = event.results[i];
-      if (result.isFinal) {
-        finalTranscript += result[0].transcript + " ";
-        onResult(finalTranscript.trim(), true);
-      } else {
-        interimTranscript += result[0].transcript;
-        onResult(finalTranscript + interimTranscript, false);
-      }
-    }
-  };
-
-  recognition.onerror = (event: any) => {
-    if (event.error !== "aborted") {
-      onError?.(`Erro no reconhecimento: ${event.error}`);
-    }
-  };
-
-  return {
-    start: () => {
-      finalTranscript = "";
-      recognition.start();
-    },
-    stop: () => {
-      recognition.stop();
-      return finalTranscript.trim();
-    },
-  };
+/**
+ * Função principal exportada — usa Whisper via backend.
+ * Mantém a mesma assinatura da versão anterior para compatibilidade.
+ */
+export async function transcribeAudio(blob: Blob): Promise<string> {
+  return transcribeAudioWithWhisper(blob);
 }
