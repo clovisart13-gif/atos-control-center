@@ -8,3 +8,4 @@
 - [x] PWA manifest e service worker
 - [x] Botão de câmera separado (capture=environment)
 - [x] Substituir Web Speech API pela API Whisper no backend para transcrição de áudios longos
+- [x] Atualizar Service Worker para v3 — força limpeza de cache no celular após migração para Whisper
