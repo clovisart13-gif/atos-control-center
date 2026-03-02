@@ -9,3 +9,4 @@
 - [x] Botão de câmera separado (capture=environment)
 - [x] Substituir Web Speech API pela API Whisper no backend para transcrição de áudios longos
 - [x] Atualizar Service Worker para v3 — força limpeza de cache no celular após migração para Whisper
+- [x] Corrigir bug: URL do webhook sendo cacheada — Atos usa URL antiga mesmo após salvar nova URL nas configurações

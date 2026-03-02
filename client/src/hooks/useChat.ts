@@ -5,12 +5,13 @@ import { APP_CONFIG } from "@shared/const";
 import { trpc } from "@/lib/trpc";
 
 /**
- * Obtém a URL do webhook dinamicamente
- * Prioridade: localStorage > variável de ambiente
+ * Obtém a URL do webhook SEMPRE do localStorage no momento da chamada.
+ * Nunca usa cache em memória — garante que a URL mais recente seja usada.
  */
 function getWebhookUrl(): string {
+  // Lê diretamente do localStorage a cada chamada (sem cache)
   const fromStorage = localStorage.getItem("atos-webhook-url");
-  if (fromStorage) return fromStorage;
+  if (fromStorage && fromStorage.trim()) return fromStorage.trim();
 
   const fromEnv = import.meta.env.VITE_WEBHOOK_URL;
   if (fromEnv) return fromEnv;
@@ -69,6 +70,7 @@ export function useChat() {
       setIsLoading(true);
 
       try {
+        // Lê a URL AGORA, no momento do envio — nunca usa cache em memória
         const webhookUrl = getWebhookUrl();
 
         if (!webhookUrl) {

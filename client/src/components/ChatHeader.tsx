@@ -3,7 +3,7 @@
  * Design: Obsidian Forge — barra compacta com logo, título e ações
  */
 import { ASSETS, APP_CONFIG } from "@shared/const";
-import { Trash2, Settings, Wifi, WifiOff } from "lucide-react";
+import { Trash2, Settings, Wifi, WifiOff, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -27,6 +27,7 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 
 interface ChatHeaderProps {
   onClearHistory: () => void;
@@ -34,27 +35,37 @@ interface ChatHeaderProps {
 }
 
 export default function ChatHeader({ onClearHistory, messageCount }: ChatHeaderProps) {
+  // Lê sempre do localStorage para mostrar o estado atual
   const [webhookUrl, setWebhookUrl] = useState(
     () => localStorage.getItem("atos-webhook-url") || import.meta.env.VITE_WEBHOOK_URL || ""
   );
   const [tempUrl, setTempUrl] = useState(webhookUrl);
+  const [isOpen, setIsOpen] = useState(false);
   const isConnected = !!webhookUrl;
 
+  // Quando o diálogo abre, sempre carrega a URL atual do localStorage
   useEffect(() => {
-    if (webhookUrl) {
-      localStorage.setItem("atos-webhook-url", webhookUrl);
-      // Disponibiliza globalmente para o hook useChat
-      (window as any).__ATOS_WEBHOOK_URL__ = webhookUrl;
+    if (isOpen) {
+      const current = localStorage.getItem("atos-webhook-url") || import.meta.env.VITE_WEBHOOK_URL || "";
+      setTempUrl(current);
     }
-  }, [webhookUrl]);
+  }, [isOpen]);
 
-  // Carrega URL salva no localStorage ao iniciar
-  useEffect(() => {
-    const saved = localStorage.getItem("atos-webhook-url");
-    if (saved) {
-      (window as any).__ATOS_WEBHOOK_URL__ = saved;
+  const handleSave = () => {
+    const trimmed = tempUrl.trim();
+    if (trimmed) {
+      // Salva no localStorage imediatamente
+      localStorage.setItem("atos-webhook-url", trimmed);
+      setWebhookUrl(trimmed);
+      toast.success("URL do webhook salva com sucesso!");
+    } else {
+      // Remove se vazio
+      localStorage.removeItem("atos-webhook-url");
+      setWebhookUrl("");
+      toast.info("URL do webhook removida.");
     }
-  }, []);
+    setIsOpen(false);
+  };
 
   return (
     <header className="sticky top-0 z-50 flex items-center justify-between px-4 py-3 border-b border-border bg-background/80 backdrop-blur-xl">
@@ -90,7 +101,7 @@ export default function ChatHeader({ onClearHistory, messageCount }: ChatHeaderP
         </div>
 
         {/* Configurações (webhook URL) */}
-        <Dialog>
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
               <Settings className="w-4 h-4" />
@@ -114,24 +125,34 @@ export default function ChatHeader({ onClearHistory, messageCount }: ChatHeaderP
                 placeholder="https://seu-n8n.com/webhook/..."
                 className="w-full px-3 py-2.5 rounded-lg bg-background border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50"
               />
+              {/* Mostra a URL atualmente salva para referência */}
+              {webhookUrl && (
+                <div className="flex items-start gap-2 p-2.5 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 mt-0.5 flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-[10px] text-emerald-400 font-medium mb-0.5">URL atual salva:</p>
+                    <p className="text-[10px] text-muted-foreground break-all leading-relaxed">{webhookUrl}</p>
+                  </div>
+                </div>
+              )}
               <p className="text-[11px] text-muted-foreground">
-                Cole a URL do webhook "WF Mentor Cognitivo API" do seu n8n.
+                Cole a URL do webhook "WF Mentor Cognitivo API" do seu n8n. A URL é salva imediatamente — não é necessário recarregar a página.
               </p>
             </div>
             <DialogFooter>
-              <DialogClose asChild>
-                <Button variant="ghost" className="text-muted-foreground">
-                  Cancelar
-                </Button>
-              </DialogClose>
-              <DialogClose asChild>
-                <Button
-                  onClick={() => setWebhookUrl(tempUrl)}
-                  className="bg-primary text-primary-foreground hover:bg-primary/90"
-                >
-                  Salvar
-                </Button>
-              </DialogClose>
+              <Button
+                variant="ghost"
+                className="text-muted-foreground"
+                onClick={() => setIsOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleSave}
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                Salvar
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
