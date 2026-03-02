@@ -6,7 +6,8 @@
  */
 import type { ChatMessage as ChatMessageType } from "@/lib/types";
 import { ASSETS } from "@shared/const";
-import { Streamdown } from "streamdown";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { FileText, Image as ImageIcon, Mic } from "lucide-react";
 
 interface ChatMessageProps {
@@ -89,7 +90,7 @@ export default function ChatMessageBubble({ message }: ChatMessageProps) {
             )}
 
             <div className="text-[15px] leading-relaxed prose-invert max-w-none [&_p]:mb-2 [&_p:last-child]:mb-0 [&_code]:bg-background/50 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[13px] [&_code]:font-mono [&_pre]:bg-background/50 [&_pre]:p-3 [&_pre]:rounded-lg [&_pre]:overflow-x-auto [&_pre]:text-[13px] [&_strong]:text-primary [&_a]:text-primary [&_a]:underline [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:mb-1 [&_blockquote]:border-l-2 [&_blockquote]:border-primary/40 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-muted-foreground">
-              <Streamdown>{message.content}</Streamdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
             </div>
           </div>
         )}
