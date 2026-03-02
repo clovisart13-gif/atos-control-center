@@ -81,9 +81,15 @@ export const appRouter = router({
             if (typeof obj === "string") return { reply: obj };
 
             if (typeof obj === "object" && obj !== null) {
-              // Busca recursiva nos campos mais comuns
-              const fields = ["reply", "output", "text", "message", "response", "content", "result", "answer", "data"];
-              for (const field of fields) {
+              // PRIORIDADE: campo "reply" é sempre o texto da mensagem
+              // Campos como "execute", "action", etc. são ignorados na exibição
+              if (obj.reply !== undefined && obj.reply !== null) {
+                return { reply: typeof obj.reply === "string" ? obj.reply : JSON.stringify(obj.reply) };
+              }
+
+              // Fallback: busca em outros campos de texto conhecidos
+              const textFields = ["output", "text", "message", "response", "content", "result", "answer"];
+              for (const field of textFields) {
                 if (obj[field] !== undefined && obj[field] !== null) {
                   const val = obj[field];
                   // Se o valor for um array (ex: content[0].text do OpenAI)
@@ -93,12 +99,13 @@ export const appRouter = router({
                     if (first?.text) return { reply: first.text };
                     if (first?.content) return { reply: first.content };
                   }
-                  return { reply: typeof val === "string" ? val : JSON.stringify(val, null, 2) };
+                  if (typeof val === "string") return { reply: val };
                 }
               }
-              // Nenhum campo conhecido — retorna o JSON formatado para debug
-              console.log("[Webhook Proxy] Unknown structure:", JSON.stringify(obj));
-              return { reply: JSON.stringify(obj, null, 2) };
+
+              // Nenhum campo de texto encontrado — loga para debug mas não exibe JSON bruto
+              console.log("[Webhook Proxy] Estrutura desconhecida:", JSON.stringify(obj));
+              return { reply: "" };
             }
 
             return { reply: String(data) };
