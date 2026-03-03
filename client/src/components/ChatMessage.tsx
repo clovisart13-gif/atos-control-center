@@ -4,11 +4,12 @@
  * - Mensagens do usuário: à direita, fundo dourado sutil
  * - Mensagens do Atos: à esquerda, barra dourada lateral
  */
+import { useState } from "react";
 import type { ChatMessage as ChatMessageType } from "@/lib/types";
 import { ASSETS } from "@shared/const";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { FileText, Image as ImageIcon, Mic } from "lucide-react";
+import { FileText, Image as ImageIcon, Mic, Copy, Check } from "lucide-react";
 
 interface ChatMessageProps {
   message: ChatMessageType;
@@ -23,6 +24,15 @@ function formatTime(timestamp: number): string {
 
 export default function ChatMessageBubble({ message }: ChatMessageProps) {
   const isUser = message.role === "user";
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    if (!message.content) return;
+    navigator.clipboard.writeText(message.content).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
 
   return (
     <div
@@ -76,7 +86,7 @@ export default function ChatMessageBubble({ message }: ChatMessageProps) {
         {/* Bolha de texto */}
         {message.content && (
           <div
-            className={`relative rounded-2xl px-4 py-3 ${
+            className={`relative group rounded-2xl px-4 py-3 ${
               isUser
                 ? "bg-primary/15 border border-primary/20 text-foreground"
                 : "gold-accent-bar pl-6 bg-secondary/60 border border-border text-foreground"
@@ -92,6 +102,23 @@ export default function ChatMessageBubble({ message }: ChatMessageProps) {
             <div className="text-[15px] leading-relaxed prose-invert max-w-none [&_p]:mb-2 [&_p:last-child]:mb-0 [&_code]:bg-background/50 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-[13px] [&_code]:font-mono [&_pre]:bg-background/50 [&_pre]:p-3 [&_pre]:rounded-lg [&_pre]:overflow-x-auto [&_pre]:text-[13px] [&_strong]:text-primary [&_a]:text-primary [&_a]:underline [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:mb-1 [&_blockquote]:border-l-2 [&_blockquote]:border-primary/40 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-muted-foreground">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
             </div>
+
+            {/* Botão copiar — aparece sempre em mobile, hover em desktop */}
+            <button
+              onClick={handleCopy}
+              className={`absolute top-2 right-2 p-1.5 rounded-md transition-all
+                bg-background/60 border border-border/50 text-muted-foreground
+                opacity-100 sm:opacity-0 sm:group-hover:opacity-100
+                hover:text-foreground hover:bg-background/80 active:scale-95`}
+              title="Copiar mensagem"
+              aria-label="Copiar mensagem"
+            >
+              {copied ? (
+                <Check className="w-3.5 h-3.5 text-green-400" />
+              ) : (
+                <Copy className="w-3.5 h-3.5" />
+              )}
+            </button>
           </div>
         )}
 

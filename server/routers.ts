@@ -6,6 +6,9 @@ import { z } from "zod";
 import { storagePut } from "./storage";
 import { transcribeAudio } from "./_core/voiceTranscription";
 import { TRPCError } from "@trpc/server";
+import { getDb } from "./db";
+import { chatMessages } from "../drizzle/schema";
+import { eq } from "drizzle-orm";
 
 export const appRouter = router({
   system: systemRouter,
@@ -18,6 +21,53 @@ export const appRouter = router({
         success: true,
       } as const;
     }),
+  }),
+
+  /**
+   * Histórico de mensagens do chat — sincronizado entre dispositivos via banco de dados.
+   */
+  chat: router({
+    getHistory: publicProcedure
+      .input(z.object({ userId: z.string() }))
+      .query(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return [];
+        const messages = await db
+          .select()
+          .from(chatMessages)
+          .where(eq(chatMessages.userId, input.userId))
+          .orderBy(chatMessages.createdAt)
+          .limit(100);
+        return messages;
+      }),
+
+    saveMessage: publicProcedure
+      .input(
+        z.object({
+          userId: z.string(),
+          role: z.enum(["user", "assistant"]),
+          content: z.string(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { success: false };
+        await db.insert(chatMessages).values({
+          userId: input.userId,
+          role: input.role,
+          content: input.content,
+        });
+        return { success: true };
+      }),
+
+    clearHistory: publicProcedure
+      .input(z.object({ userId: z.string() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) return { success: false };
+        await db.delete(chatMessages).where(eq(chatMessages.userId, input.userId));
+        return { success: true };
+      }),
   }),
 
   /**
@@ -57,19 +107,12 @@ export const appRouter = router({
         // Lê o corpo como texto para ser flexível
         const rawText = await response.text();
 
-        // Log completo para diagnóstico
-        console.log("[Webhook Proxy] Status:", response.status);
-        console.log("[Webhook Proxy] Content-Type:", response.headers.get("content-type"));
-        console.log("[Webhook Proxy] Raw response (primeiros 1000 chars):", rawText.substring(0, 1000));
-
         if (!response.ok) {
-          // Retorna o erro como mensagem visível no chat para diagnóstico
-          return { reply: "\u274c **Erro HTTP " + response.status + "**\n\nResposta bruta do n8n:\n" + rawText.substring(0, 500) };
+          return { reply: "Erro ao conectar com o assistente. Tente novamente." };
         }
 
-        // MODO DIAGNÓSTICO: mostra tudo que o n8n retorna
         if (!rawText || !rawText.trim()) {
-          return { reply: "❌ **n8n retornou resposta vazia (sem conteúdo)**\n\nStatus HTTP: " + response.status };
+          return { reply: "O assistente não retornou resposta. Tente novamente." };
         }
 
         // Tenta parsear como JSON
@@ -106,10 +149,6 @@ export const appRouter = router({
                 if (typeof val === "string") return { reply: val };
               }
             }
-
-            // Nenhum campo reconhecido — mostra JSON completo no chat
-            const jsonStr = JSON.stringify(obj, null, 2);
-            return { reply: "\u26a0\ufe0f **Resposta do n8n recebida, mas sem campo 'reply'.** Estrutura retornada:\n\n" + jsonStr };
           }
 
           return { reply: String(data) };
@@ -122,22 +161,18 @@ export const appRouter = router({
 
   /**
    * Transcrição de áudio com Whisper API via backend.
-   * Fluxo: frontend envia blob base64 → backend faz upload para S3 → chama Whisper → retorna texto.
    */
   voice: router({
     transcribe: publicProcedure
       .input(
         z.object({
-          // Áudio em base64 (sem prefixo data:...)
           audioBase64: z.string(),
-          // Tipo MIME do áudio (ex: audio/webm)
           mimeType: z.string().default("audio/webm"),
         })
       )
       .mutation(async ({ input }) => {
         const { audioBase64, mimeType } = input;
 
-        // 1. Decodifica base64 para Buffer
         let audioBuffer: Buffer;
         try {
           audioBuffer = Buffer.from(audioBase64, "base64");
@@ -148,7 +183,6 @@ export const appRouter = router({
           });
         }
 
-        // Verifica tamanho (máx 16MB)
         const sizeMB = audioBuffer.length / (1024 * 1024);
         if (sizeMB > 16) {
           throw new TRPCError({
@@ -157,7 +191,6 @@ export const appRouter = router({
           });
         }
 
-        // 2. Faz upload para S3 para obter URL pública
         const ext = mimeType.includes("webm") ? "webm"
           : mimeType.includes("mp4") ? "mp4"
           : mimeType.includes("ogg") ? "ogg"
@@ -171,7 +204,6 @@ export const appRouter = router({
         try {
           const uploaded = await storagePut(fileKey, audioBuffer, mimeType);
           audioUrl = uploaded.url;
-          console.log("[Voice] Áudio enviado para S3:", audioUrl);
         } catch (err) {
           console.error("[Voice] Erro no upload para S3:", err);
           throw new TRPCError({
@@ -180,23 +212,18 @@ export const appRouter = router({
           });
         }
 
-        // 3. Transcreve com Whisper
         const result = await transcribeAudio({
           audioUrl,
           language: "pt",
           prompt: "Transcreva a fala do usuário em português brasileiro.",
         });
 
-        // Verifica se houve erro
         if ("error" in result) {
-          console.error("[Voice] Erro na transcrição:", result);
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
             message: `Erro na transcrição: ${result.error}`,
           });
         }
-
-        console.log("[Voice] Transcrição concluída:", result.text.substring(0, 100));
 
         return {
           text: result.text,

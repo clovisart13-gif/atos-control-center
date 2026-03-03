@@ -6,51 +6,46 @@ import { trpc } from "@/lib/trpc";
 
 /**
  * Obtém a URL do webhook SEMPRE do localStorage no momento da chamada.
- * Nunca usa cache em memória — garante que a URL mais recente seja usada.
  */
 function getWebhookUrl(): string {
-  // Lê diretamente do localStorage a cada chamada (sem cache)
   const fromStorage = localStorage.getItem("atos-webhook-url");
   if (fromStorage && fromStorage.trim()) return fromStorage.trim();
-
   const fromEnv = import.meta.env.VITE_WEBHOOK_URL;
   if (fromEnv) return fromEnv;
-
   return "";
 }
 
-const STORAGE_KEY = APP_CONFIG.localStorageKey;
-
-function loadHistory(): ChatMessage[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {
-    // Ignora erros de parsing
-  }
-  return [];
-}
-
-function saveHistory(messages: ChatMessage[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-200)));
-  } catch {
-    // Ignora erros de storage cheio
-  }
-}
+const userId = APP_CONFIG.userId;
 
 export function useChat() {
-  const [messages, setMessages] = useState<ChatMessage[]>(loadHistory);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Salva histórico sempre que as mensagens mudam
-  useEffect(() => {
-    saveHistory(messages);
-  }, [messages]);
+  // Carrega histórico do servidor
+  const historyQuery = trpc.chat.getHistory.useQuery(
+    { userId },
+    { staleTime: 30_000 }
+  );
 
-  // Mutation tRPC para o proxy do webhook
+  // Quando o histórico do servidor chega, popula o estado local
+  useEffect(() => {
+    if (historyQuery.data && historyQuery.data.length > 0) {
+      const serverMessages: ChatMessage[] = historyQuery.data.map((m) => ({
+        id: String(m.id),
+        role: m.role as "user" | "assistant",
+        content: m.content,
+        timestamp: new Date(m.createdAt).getTime(),
+      }));
+      setMessages(serverMessages);
+    }
+  }, [historyQuery.data]);
+
+  // Mutations tRPC
   const webhookMutation = trpc.webhook.send.useMutation();
+  const saveMessageMutation = trpc.chat.saveMessage.useMutation();
+  const clearHistoryMutation = trpc.chat.clearHistory.useMutation();
+  const utils = trpc.useUtils();
 
   const sendMessage = useCallback(
     async (content: string, attachments?: Attachment[]) => {
@@ -69,19 +64,25 @@ export function useChat() {
       setMessages((prev) => [...prev, userMessage]);
       setIsLoading(true);
 
+      // Salva mensagem do usuário no servidor (sem bloquear)
+      saveMessageMutation.mutate({
+        userId,
+        role: "user",
+        content: content.trim(),
+      });
+
       try {
-        // Lê a URL AGORA, no momento do envio — nunca usa cache em memória
         const webhookUrl = getWebhookUrl();
 
         if (!webhookUrl) {
           await new Promise((r) => setTimeout(r, 1500));
+          const noWebhookMsg = '⚠️ **Webhook não configurado.** Clique no ícone de ⚙️ **Configurações** no canto superior direito para inserir a URL do webhook do n8n.';
           setMessages((prev) => [
             ...prev,
             {
               id: nanoid(),
               role: "assistant",
-              content:
-                '⚠️ **Webhook não configurado.** Clique no ícone de ⚙️ **Configurações** no canto superior direito para inserir a URL do webhook do n8n.',
+              content: noWebhookMsg,
               timestamp: Date.now(),
             },
           ]);
@@ -89,26 +90,17 @@ export function useChat() {
           return;
         }
 
-        // Envia via proxy backend (contorna CORS)
         const result = await webhookMutation.mutateAsync({
           webhookUrl,
           payload: {
-            user_id: APP_CONFIG.userId,
+            user_id: userId,
             message: content.trim(),
             attachments: attachments?.map((a) => ({ type: a.type, url: a.url })),
           },
         });
 
         const reply = result.reply;
-
-        let finalContent: string;
-
-        if (reply) {
-          finalContent = reply;
-        } else {
-          finalContent =
-            "⚠️ **O servidor respondeu, mas sem conteúdo de texto.**\n\n**Possível causa:** O nó \"Webhook\" no n8n está com \"Respond\" em \"Immediately\" (responde antes do modelo processar).\n\n**Solução:** No nó **Webhook**, mude \"Respond\" para **\"When Last Node Finishes\"**.";
-        }
+        const finalContent = reply || "⚠️ O assistente não retornou resposta. Tente novamente.";
 
         setMessages((prev) => [
           ...prev,
@@ -119,6 +111,14 @@ export function useChat() {
             timestamp: Date.now(),
           },
         ]);
+
+        // Salva resposta do assistente no servidor
+        saveMessageMutation.mutate({
+          userId,
+          role: "assistant",
+          content: finalContent,
+        });
+
       } catch (err: any) {
         const errorMsg = err.message || "Erro ao comunicar com o servidor.";
         setError(errorMsg);
@@ -135,13 +135,14 @@ export function useChat() {
         setIsLoading(false);
       }
     },
-    [webhookMutation]
+    [webhookMutation, saveMessageMutation]
   );
 
-  const clearHistory = useCallback(() => {
+  const clearHistory = useCallback(async () => {
     setMessages([]);
-    localStorage.removeItem(STORAGE_KEY);
-  }, []);
+    await clearHistoryMutation.mutateAsync({ userId });
+    utils.chat.getHistory.invalidate({ userId });
+  }, [clearHistoryMutation, utils]);
 
   return {
     messages,
@@ -149,5 +150,6 @@ export function useChat() {
     error,
     sendMessage,
     clearHistory,
+    isLoadingHistory: historyQuery.isLoading,
   };
 }

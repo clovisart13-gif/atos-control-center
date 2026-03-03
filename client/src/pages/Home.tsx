@@ -13,7 +13,7 @@ import WelcomeScreen from "@/components/WelcomeScreen";
 import type { Attachment } from "@/lib/types";
 
 export default function Home() {
-  const { messages, isLoading, sendMessage, clearHistory } = useChat();
+  const { messages, isLoading, sendMessage, clearHistory, isLoadingHistory } = useChat();
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [initialMessage, setInitialMessage] = useState<string | undefined>();
@@ -50,7 +50,14 @@ export default function Home() {
         ref={scrollRef}
         className="flex-1 overflow-y-auto overscroll-contain"
       >
-        {messages.length === 0 ? (
+        {isLoadingHistory ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="flex flex-col items-center gap-3 text-muted-foreground">
+              <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+              <span className="text-sm">Carregando histórico...</span>
+            </div>
+          </div>
+        ) : messages.length === 0 ? (
           <WelcomeScreen onSuggestionClick={handleSuggestionClick} />
         ) : (
           <div className="flex flex-col gap-4 px-3 sm:px-4 py-4 max-w-4xl mx-auto">
