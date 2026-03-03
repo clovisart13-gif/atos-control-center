@@ -103,9 +103,10 @@ export const appRouter = router({
                 }
               }
 
-              // Nenhum campo de texto encontrado — loga para debug mas não exibe JSON bruto
-              console.log("[Webhook Proxy] Estrutura desconhecida:", JSON.stringify(obj));
-              return { reply: "" };
+              // Nenhum campo de texto encontrado — retorna o JSON bruto para debug
+              const rawJson = JSON.stringify(obj, null, 2);
+              console.log("[Webhook Proxy] Estrutura desconhecida:", rawJson);
+              return { reply: "\u26a0\ufe0f **Resposta recebida do n8n (formato n\u00e3o reconhecido):**\n\n" + rawJson };
             }
 
             return { reply: String(data) };

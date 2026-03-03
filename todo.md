@@ -11,3 +11,4 @@
 - [x] Atualizar Service Worker para v3 — força limpeza de cache no celular após migração para Whisper
 - [x] Corrigir bug: URL do webhook sendo cacheada — Atos usa URL antiga mesmo após salvar nova URL nas configurações
 - [x] Corrigir exibição da resposta do webhook — exibir apenas data.reply em vez do objeto JSON completo
+- [ ] Debug: exibir resposta bruta do n8n no chat para diagnosticar formato exato retornado
