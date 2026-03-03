@@ -57,66 +57,66 @@ export const appRouter = router({
         // Lê o corpo como texto para ser flexível
         const rawText = await response.text();
 
+        // Log completo para diagnóstico
+        console.log("[Webhook Proxy] Status:", response.status);
+        console.log("[Webhook Proxy] Content-Type:", response.headers.get("content-type"));
+        console.log("[Webhook Proxy] Raw response (primeiros 1000 chars):", rawText.substring(0, 1000));
+
         if (!response.ok) {
-          throw new Error(`Webhook retornou erro ${response.status}: ${rawText}`);
+          // Retorna o erro como mensagem visível no chat para diagnóstico
+          return { reply: "\u274c **Erro HTTP " + response.status + "**\n\nResposta bruta do n8n:\n" + rawText.substring(0, 500) };
         }
 
-        // Log para debug
-        console.log("[Webhook Proxy] Status:", response.status);
-        console.log("[Webhook Proxy] Raw response:", rawText.substring(0, 500));
+        // MODO DIAGNÓSTICO: mostra tudo que o n8n retorna
+        if (!rawText || !rawText.trim()) {
+          return { reply: "❌ **n8n retornou resposta vazia (sem conteúdo)**\n\nStatus HTTP: " + response.status };
+        }
 
         // Tenta parsear como JSON
-        if (rawText && rawText.trim()) {
-          try {
-            let data = JSON.parse(rawText);
+        try {
+          let data = JSON.parse(rawText);
 
-            // Se o resultado for uma string, pode ser JSON duplo (JSON.stringify dentro do n8n)
-            if (typeof data === "string") {
-              try { data = JSON.parse(data); } catch { return { reply: data }; }
-            }
-
-            // Se for array, pega o primeiro elemento
-            const obj = Array.isArray(data) ? data[0] : data;
-
-            if (typeof obj === "string") return { reply: obj };
-
-            if (typeof obj === "object" && obj !== null) {
-              // PRIORIDADE: campo "reply" é sempre o texto da mensagem
-              // Campos como "execute", "action", etc. são ignorados na exibição
-              if (obj.reply !== undefined && obj.reply !== null) {
-                return { reply: typeof obj.reply === "string" ? obj.reply : JSON.stringify(obj.reply) };
-              }
-
-              // Fallback: busca em outros campos de texto conhecidos
-              const textFields = ["output", "text", "message", "response", "content", "result", "answer"];
-              for (const field of textFields) {
-                if (obj[field] !== undefined && obj[field] !== null) {
-                  const val = obj[field];
-                  // Se o valor for um array (ex: content[0].text do OpenAI)
-                  if (Array.isArray(val) && val.length > 0) {
-                    const first = val[0];
-                    if (typeof first === "string") return { reply: first };
-                    if (first?.text) return { reply: first.text };
-                    if (first?.content) return { reply: first.content };
-                  }
-                  if (typeof val === "string") return { reply: val };
-                }
-              }
-
-              // Nenhum campo de texto encontrado — retorna o JSON bruto para debug
-              const rawJson = JSON.stringify(obj, null, 2);
-              console.log("[Webhook Proxy] Estrutura desconhecida:", rawJson);
-              return { reply: "\u26a0\ufe0f **Resposta recebida do n8n (formato n\u00e3o reconhecido):**\n\n" + rawJson };
-            }
-
-            return { reply: String(data) };
-          } catch {
-            // Não é JSON — retorna como texto puro
-            return { reply: rawText.trim() };
+          // Se o resultado for uma string, pode ser JSON duplo
+          if (typeof data === "string") {
+            try { data = JSON.parse(data); } catch { return { reply: data }; }
           }
-        }
 
-        return { reply: "" };
+          // Se for array, pega o primeiro elemento
+          const obj = Array.isArray(data) ? data[0] : data;
+
+          if (typeof obj === "string") return { reply: obj };
+
+          if (typeof obj === "object" && obj !== null) {
+            // PRIORIDADE: campo "reply"
+            if (obj.reply !== undefined && obj.reply !== null) {
+              return { reply: typeof obj.reply === "string" ? obj.reply : JSON.stringify(obj.reply) };
+            }
+
+            // Fallback: busca em outros campos de texto conhecidos
+            const textFields = ["output", "text", "message", "response", "content", "result", "answer"];
+            for (const field of textFields) {
+              if (obj[field] !== undefined && obj[field] !== null) {
+                const val = obj[field];
+                if (Array.isArray(val) && val.length > 0) {
+                  const first = val[0];
+                  if (typeof first === "string") return { reply: first };
+                  if (first?.text) return { reply: first.text };
+                  if (first?.content) return { reply: first.content };
+                }
+                if (typeof val === "string") return { reply: val };
+              }
+            }
+
+            // Nenhum campo reconhecido — mostra JSON completo no chat
+            const jsonStr = JSON.stringify(obj, null, 2);
+            return { reply: "\u26a0\ufe0f **Resposta do n8n recebida, mas sem campo 'reply'.** Estrutura retornada:\n\n" + jsonStr };
+          }
+
+          return { reply: String(data) };
+        } catch {
+          // Não é JSON — retorna como texto puro
+          return { reply: rawText.trim() };
+        }
       }),
   }),
 
