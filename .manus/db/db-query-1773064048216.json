@@ -1,0 +1,150 @@
+{
+  "query": "SELECT id, userId, role, LEFT(content, 80) as content_preview, createdAt FROM chatMessages ORDER BY createdAt DESC LIMIT 20;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3FX9kxqoNJJuMBk.8e6390f8cc3f --database bhtqDJFFjSGsprAUaorMVq --execute SELECT id, userId, role, LEFT(content, 80) as content_preview, createdAt FROM chatMessages ORDER BY createdAt DESC LIMIT 20;",
+  "rows": [
+    {
+      "id": "390004",
+      "userId": "clovis_admin",
+      "role": "assistant",
+      "content_preview": "Clóvis — Contexto rápido: tentei criar o workflow \"teste autônomo\" e a ferrament",
+      "createdAt": "2026-03-09 13:40:09"
+    },
+    {
+      "id": "390003",
+      "userId": "clovis_admin",
+      "role": "user",
+      "content_preview": "Executa",
+      "createdAt": "2026-03-09 13:39:30"
+    },
+    {
+      "id": "390002",
+      "userId": "clovis_admin",
+      "role": "assistant",
+      "content_preview": "Clóvis — Contexto rápido: você quer um workflow chamado \"teste autônomo\" com gat",
+      "createdAt": "2026-03-09 13:39:00"
+    },
+    {
+      "id": "390001",
+      "userId": "clovis_admin",
+      "role": "user",
+      "content_preview": "Atos, crie um workflow chamado teste autônomo que tenha um trigger manual e um n",
+      "createdAt": "2026-03-09 13:38:41"
+    },
+    {
+      "id": "360016",
+      "userId": "clovis_admin",
+      "role": "assistant",
+      "content_preview": "Clóvis — Contexto rápido: você aprovou, então montei o JSON do workflow simples ",
+      "createdAt": "2026-03-09 13:17:22"
+    },
+    {
+      "id": "360015",
+      "userId": "clovis_admin",
+      "role": "user",
+      "content_preview": "Ok",
+      "createdAt": "2026-03-09 13:16:40"
+    },
+    {
+      "id": "360014",
+      "userId": "clovis_admin",
+      "role": "assistant",
+      "content_preview": "Clóvis — Contexto rápido: você pediu um workflow simples que receba uma mensagem",
+      "createdAt": "2026-03-09 13:16:09"
+    },
+    {
+      "id": "360013",
+      "userId": "clovis_admin",
+      "role": "user",
+      "content_preview": "Crie um workflow simples que receba uma mensagem e responda OK.",
+      "createdAt": "2026-03-09 13:15:49"
+    },
+    {
+      "id": "360012",
+      "userId": "clovis_admin",
+      "role": "assistant",
+      "content_preview": "Clóvis — Contexto rápido: você quer que eu assuma autonomia na criação de workfl",
+      "createdAt": "2026-03-09 13:02:48"
+    },
+    {
+      "id": "360011",
+      "userId": "clovis_admin",
+      "role": "user",
+      "content_preview": "Atos, quando precisar criar um workflow no N8n, assuma que você pode escolher os",
+      "createdAt": "2026-03-09 13:02:23"
+    },
+    {
+      "id": "360010",
+      "userId": "clovis_admin",
+      "role": "assistant",
+      "content_preview": "Clóvis — Contexto rápido: você quer saber o que preciso para montar o JSON de um",
+      "createdAt": "2026-03-09 12:53:22"
+    },
+    {
+      "id": "360009",
+      "userId": "clovis_admin",
+      "role": "user",
+      "content_preview": "Oi, Aps, se eu te pedisse para criar um novo workflow no N8n, quais informações ",
+      "createdAt": "2026-03-09 12:52:52"
+    },
+    {
+      "id": "360008",
+      "userId": "clovis_admin",
+      "role": "assistant",
+      "content_preview": "Clóvis — Contexto rápido: você perguntou qual é o papel do workflow wf_superviso",
+      "createdAt": "2026-03-09 12:47:37"
+    },
+    {
+      "id": "360007",
+      "userId": "clovis_admin",
+      "role": "user",
+      "content_preview": "Ok. Qual é o papel do Workflow WF Supervisor orquestrador na arquitetura do sist",
+      "createdAt": "2026-03-09 12:47:18"
+    },
+    {
+      "id": "360006",
+      "userId": "clovis_admin",
+      "role": "assistant",
+      "content_preview": "Clóvis — Contexto rápido: abri o workflow Atos_core e vou descrever como os node",
+      "createdAt": "2026-03-09 12:39:45"
+    },
+    {
+      "id": "360005",
+      "userId": "clovis_admin",
+      "role": "user",
+      "content_preview": "Descriva as conexões dos nodes no Orkflow AtosCore.",
+      "createdAt": "2026-03-09 12:38:18"
+    },
+    {
+      "id": "360004",
+      "userId": "clovis_admin",
+      "role": "assistant",
+      "content_preview": "Clóvis — Contexto rápido: abri o workflow Atos_core (id M1DGQrKVptJrHJUO) e extr",
+      "createdAt": "2026-03-09 12:35:18"
+    },
+    {
+      "id": "360003",
+      "userId": "clovis_admin",
+      "role": "user",
+      "content_preview": "Quero que vc abra o workflow atos_core e me diga os nodes desse workflow",
+      "createdAt": "2026-03-09 12:34:48"
+    },
+    {
+      "id": "360002",
+      "userId": "clovis_admin",
+      "role": "assistant",
+      "content_preview": "Clóvis — Contexto rápido: você disse “Tentei novamente”. Preciso confirmar o que",
+      "createdAt": "2026-03-09 12:33:51"
+    },
+    {
+      "id": "360001",
+      "userId": "clovis_admin",
+      "role": "user",
+      "content_preview": "Tentei novamente",
+      "createdAt": "2026-03-09 12:33:34"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tuserId\trole\tcontent_preview\tcreatedAt\n390004\tclovis_admin\tassistant\tClóvis — Contexto rápido: tentei criar o workflow \"teste autônomo\" e a ferrament\t2026-03-09 13:40:09\n390003\tclovis_admin\tuser\tExecuta\t2026-03-09 13:39:30\n390002\tclovis_admin\tassistant\tClóvis — Contexto rápido: você quer um workflow chamado \"teste autônomo\" com gat\t2026-03-09 13:39:00\n390001\tclovis_admin\tuser\tAtos, crie um workflow chamado teste autônomo que tenha um trigger manual e um n\t2026-03-09 13:38:41\n360016\tclovis_admin\tassistant\tClóvis — Contexto rápido: você aprovou, então montei o JSON do workflow simples \t2026-03-09 13:17:22\n360015\tclovis_admin\tuser\tOk\t2026-03-09 13:16:40\n360014\tclovis_admin\tassistant\tClóvis — Contexto rápido: você pediu um workflow simples que receba uma mensagem\t2026-03-09 13:16:09\n360013\tclovis_admin\tuser\tCrie um workflow simples que receba uma mensagem e responda OK.\t2026-03-09 13:15:49\n360012\tclovis_admin\tassistant\tClóvis — Contexto rápido: você quer que eu assuma autonomia na criação de workfl\t2026-03-09 13:02:48\n360011\tclovis_admin\tuser\tAtos, quando precisar criar um workflow no N8n, assuma que você pode escolher os\t2026-03-09 13:02:23\n360010\tclovis_admin\tassistant\tClóvis — Contexto rápido: você quer saber o que preciso para montar o JSON de um\t2026-03-09 12:53:22\n360009\tclovis_admin\tuser\tOi, Aps, se eu te pedisse para criar um novo workflow no N8n, quais informações \t2026-03-09 12:52:52\n360008\tclovis_admin\tassistant\tClóvis — Contexto rápido: você perguntou qual é o papel do workflow wf_superviso\t2026-03-09 12:47:37\n360007\tclovis_admin\tuser\tOk. Qual é o papel do Workflow WF Supervisor orquestrador na arquitetura do sist\t2026-03-09 12:47:18\n360006\tclovis_admin\tassistant\tClóvis — Contexto rápido: abri o workflow Atos_core e vou descrever como os node\t2026-03-09 12:39:45\n360005\tclovis_admin\tuser\tDescriva as conexões dos nodes no Orkflow AtosCore.\t2026-03-09 12:38:18\n360004\tclovis_admin\tassistant\tClóvis — Contexto rápido: abri o workflow Atos_core (id M1DGQrKVptJrHJUO) e extr\t2026-03-09 12:35:18\n360003\tclovis_admin\tuser\tQuero que vc abra o workflow atos_core e me diga os nodes desse workflow\t2026-03-09 12:34:48\n360002\tclovis_admin\tassistant\tClóvis — Contexto rápido: você disse “Tentei novamente”. Preciso confirmar o que\t2026-03-09 12:33:51\n360001\tclovis_admin\tuser\tTentei novamente\t2026-03-09 12:33:34\n",
+  "stderr": "",
+  "execution_time_ms": 348
+}

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { nanoid } from "nanoid";
 import type { ChatMessage, Attachment } from "@/lib/types";
 import { APP_CONFIG } from "@shared/const";
@@ -21,23 +21,32 @@ export function useChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Controla se já carregou o histórico inicial — evita sobrescrever mensagens novas
+  const historyLoadedRef = useRef(false);
 
-  // Carrega histórico do servidor
+  // Carrega histórico do servidor — apenas uma vez ao montar
   const historyQuery = trpc.chat.getHistory.useQuery(
     { userId },
-    { staleTime: 30_000 }
+    {
+      staleTime: Infinity, // não recarrega automaticamente
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+    }
   );
 
-  // Quando o histórico do servidor chega, popula o estado local
+  // Quando o histórico do servidor chega pela primeira vez, popula o estado local
   useEffect(() => {
-    if (historyQuery.data && historyQuery.data.length > 0) {
-      const serverMessages: ChatMessage[] = historyQuery.data.map((m) => ({
-        id: String(m.id),
-        role: m.role as "user" | "assistant",
-        content: m.content,
-        timestamp: new Date(m.createdAt).getTime(),
-      }));
-      setMessages(serverMessages);
+    if (historyQuery.data !== undefined && !historyLoadedRef.current) {
+      historyLoadedRef.current = true;
+      if (historyQuery.data.length > 0) {
+        const serverMessages: ChatMessage[] = historyQuery.data.map((m) => ({
+          id: String(m.id),
+          role: m.role as "user" | "assistant",
+          content: m.content,
+          timestamp: new Date(m.createdAt).getTime(),
+        }));
+        setMessages(serverMessages);
+      }
     }
   }, [historyQuery.data]);
 
@@ -64,12 +73,12 @@ export function useChat() {
       setMessages((prev) => [...prev, userMessage]);
       setIsLoading(true);
 
-      // Salva mensagem do usuário no servidor (sem bloquear)
-      saveMessageMutation.mutate({
+      // Salva mensagem do usuário no servidor de forma assíncrona
+      saveMessageMutation.mutateAsync({
         userId,
         role: "user",
         content: content.trim(),
-      });
+      }).catch((err) => console.error("[Chat] Erro ao salvar mensagem do usuário:", err));
 
       try {
         const webhookUrl = getWebhookUrl();
@@ -112,12 +121,12 @@ export function useChat() {
           },
         ]);
 
-        // Salva resposta do assistente no servidor
-        saveMessageMutation.mutate({
+        // Salva resposta do assistente no servidor de forma assíncrona
+        saveMessageMutation.mutateAsync({
           userId,
           role: "assistant",
           content: finalContent,
-        });
+        }).catch((err) => console.error("[Chat] Erro ao salvar resposta do assistente:", err));
 
       } catch (err: any) {
         const errorMsg = err.message || "Erro ao comunicar com o servidor.";
@@ -140,6 +149,7 @@ export function useChat() {
 
   const clearHistory = useCallback(async () => {
     setMessages([]);
+    historyLoadedRef.current = false;
     await clearHistoryMutation.mutateAsync({ userId });
     utils.chat.getHistory.invalidate({ userId });
   }, [clearHistoryMutation, utils]);

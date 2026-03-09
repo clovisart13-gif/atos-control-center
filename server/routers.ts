@@ -37,7 +37,7 @@ export const appRouter = router({
           .from(chatMessages)
           .where(eq(chatMessages.userId, input.userId))
           .orderBy(chatMessages.createdAt)
-          .limit(100);
+          .limit(500);
         return messages;
       }),
 

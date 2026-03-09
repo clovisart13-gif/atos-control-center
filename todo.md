@@ -14,3 +14,5 @@
 - [x] Debug: exibir resposta bruta do n8n no chat para diagnosticar formato exato retornado
 - [x] Histórico de mensagens sincronizado entre dispositivos via banco de dados
 - [x] Botão de copiar em cada mensagem (visível sempre no mobile, hover no desktop)
+- [x] Corrigir persistência: histórico não sobrescreve mensagens novas ao recarregar
+- [x] Aumentar limite do histórico de 100 para 500 mensagens
