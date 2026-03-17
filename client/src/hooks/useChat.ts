@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { nanoid } from "nanoid";
 import type { ChatMessage, Attachment } from "@/lib/types";
 import { APP_CONFIG } from "@shared/const";
@@ -21,23 +21,24 @@ export function useChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Controla se já carregou o histórico inicial — evita sobrescrever mensagens novas
-  const historyLoadedRef = useRef(false);
+  // Controla se já populou o estado local com o histórico inicial
+  // para não sobrescrever mensagens novas enviadas na sessão atual
+  const [historyPopulated, setHistoryPopulated] = useState(false);
 
-  // Carrega histórico do servidor — apenas uma vez ao montar
+  // Carrega histórico do servidor — recarrega sempre que o componente monta
   const historyQuery = trpc.chat.getHistory.useQuery(
     { userId },
     {
-      staleTime: Infinity, // não recarrega automaticamente
+      staleTime: 0,           // sempre considera o cache desatualizado
       refetchOnWindowFocus: false,
       refetchOnReconnect: false,
     }
   );
 
-  // Quando o histórico do servidor chega pela primeira vez, popula o estado local
+  // Quando o histórico do servidor chega, popula o estado local UMA VEZ por sessão
   useEffect(() => {
-    if (historyQuery.data !== undefined && !historyLoadedRef.current) {
-      historyLoadedRef.current = true;
+    if (historyQuery.data !== undefined && !historyPopulated) {
+      setHistoryPopulated(true);
       if (historyQuery.data.length > 0) {
         const serverMessages: ChatMessage[] = historyQuery.data.map((m) => ({
           id: String(m.id),
@@ -48,7 +49,7 @@ export function useChat() {
         setMessages(serverMessages);
       }
     }
-  }, [historyQuery.data]);
+  }, [historyQuery.data, historyPopulated]);
 
   // Mutations tRPC
   const webhookMutation = trpc.webhook.send.useMutation();
@@ -85,7 +86,7 @@ export function useChat() {
 
         if (!webhookUrl) {
           await new Promise((r) => setTimeout(r, 1500));
-          const noWebhookMsg = '⚠️ **Webhook não configurado.** Clique no ícone de ⚙️ **Configurações** no canto superior direito para inserir a URL do webhook do n8n.';
+          const noWebhookMsg = '⚠️ **Webhook não configurado.** Clique no ícone de ⚙️ **Configurações** no canto superior direito para inserir a URL do webhook.';
           setMessages((prev) => [
             ...prev,
             {
@@ -149,7 +150,7 @@ export function useChat() {
 
   const clearHistory = useCallback(async () => {
     setMessages([]);
-    historyLoadedRef.current = false;
+    setHistoryPopulated(false);
     await clearHistoryMutation.mutateAsync({ userId });
     utils.chat.getHistory.invalidate({ userId });
   }, [clearHistoryMutation, utils]);

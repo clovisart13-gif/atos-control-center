@@ -16,3 +16,4 @@
 - [x] Botão de copiar em cada mensagem (visível sempre no mobile, hover no desktop)
 - [x] Corrigir persistência: histórico não sobrescreve mensagens novas ao recarregar
 - [x] Aumentar limite do histórico de 100 para 500 mensagens
+- [x] Corrigir bug: histórico não carregava ao reabrir o app (staleTime: Infinity impedia nova busca ao servidor)
