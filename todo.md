@@ -23,3 +23,4 @@
 - [x] Suporte a acionamento do executor n8n via athos-bridge quando Mentor decide executar ação
 - [x] Adicionar suporte a colar imagens via Ctrl+V/paste no chat
 - [x] Enriquecer system prompt do Mentor com contexto real do Supabase (R2PB, Mirage, arquitetura cognitiva, estado atual)
+- [x] Atualizar system prompt com perfil completo de Clóvis, mapa do ecossistema (R2PB, Mirage, 5 apps Manus, ferramentas externas) e orientações de quando usar cada plataforma
