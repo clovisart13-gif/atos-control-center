@@ -9,9 +9,11 @@ import { TRPCError } from "@trpc/server";
 import { getDb } from "./db";
 import { chatMessages } from "../drizzle/schema";
 import { eq, desc } from "drizzle-orm";
+import { mentorRouter } from "./mentorRouter";
 
 export const appRouter = router({
   system: systemRouter,
+  mentor: mentorRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {

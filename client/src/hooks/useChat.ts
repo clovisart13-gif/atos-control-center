@@ -4,17 +4,6 @@ import type { ChatMessage, Attachment } from "@/lib/types";
 import { APP_CONFIG } from "@shared/const";
 import { trpc } from "@/lib/trpc";
 
-/**
- * Obtém a URL do webhook SEMPRE do localStorage no momento da chamada.
- */
-function getWebhookUrl(): string {
-  const fromStorage = localStorage.getItem("atos-webhook-url");
-  if (fromStorage && fromStorage.trim()) return fromStorage.trim();
-  const fromEnv = import.meta.env.VITE_WEBHOOK_URL;
-  if (fromEnv) return fromEnv;
-  return "";
-}
-
 const userId = APP_CONFIG.userId;
 
 export function useChat() {
@@ -22,20 +11,19 @@ export function useChat() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Controla se já populou o estado local com o histórico inicial
-  // para não sobrescrever mensagens novas enviadas na sessão atual
   const [historyPopulated, setHistoryPopulated] = useState(false);
 
-  // Carrega histórico do servidor — recarrega sempre que o componente monta
+  // Carrega histórico do banco local (MySQL) — recarrega sempre que o componente monta
   const historyQuery = trpc.chat.getHistory.useQuery(
     { userId },
     {
-      staleTime: 0,           // sempre considera o cache desatualizado
+      staleTime: 0,
       refetchOnWindowFocus: false,
       refetchOnReconnect: false,
     }
   );
 
-  // Quando o histórico do servidor chega, popula o estado local UMA VEZ por sessão
+  // Quando o histórico chega, popula o estado local UMA VEZ por sessão
   useEffect(() => {
     if (historyQuery.data !== undefined && !historyPopulated) {
       setHistoryPopulated(true);
@@ -52,7 +40,7 @@ export function useChat() {
   }, [historyQuery.data, historyPopulated]);
 
   // Mutations tRPC
-  const webhookMutation = trpc.webhook.send.useMutation();
+  const mentorMutation = trpc.mentor.chat.useMutation();
   const saveMessageMutation = trpc.chat.saveMessage.useMutation();
   const clearHistoryMutation = trpc.chat.clearHistory.useMutation();
   const utils = trpc.useUtils();
@@ -74,7 +62,7 @@ export function useChat() {
       setMessages((prev) => [...prev, userMessage]);
       setIsLoading(true);
 
-      // Salva mensagem do usuário no servidor de forma assíncrona
+      // Salva mensagem do usuário no banco local (MySQL) de forma assíncrona
       saveMessageMutation.mutateAsync({
         userId,
         role: "user",
@@ -82,35 +70,13 @@ export function useChat() {
       }).catch((err) => console.error("[Chat] Erro ao salvar mensagem do usuário:", err));
 
       try {
-        const webhookUrl = getWebhookUrl();
-
-        if (!webhookUrl) {
-          await new Promise((r) => setTimeout(r, 1500));
-          const noWebhookMsg = '⚠️ **Webhook não configurado.** Clique no ícone de ⚙️ **Configurações** no canto superior direito para inserir a URL do webhook.';
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: nanoid(),
-              role: "assistant",
-              content: noWebhookMsg,
-              timestamp: Date.now(),
-            },
-          ]);
-          setIsLoading(false);
-          return;
-        }
-
-        const result = await webhookMutation.mutateAsync({
-          webhookUrl,
-          payload: {
-            user_id: userId,
-            message: content.trim(),
-            attachments: attachments?.map((a) => ({ type: a.type, url: a.url })),
-          },
+        // Chama o Mentor nativo do Manus (com contexto do Supabase)
+        const result = await mentorMutation.mutateAsync({
+          message: content.trim(),
+          userId,
         });
 
-        const reply = result.reply;
-        const finalContent = reply || "⚠️ O assistente não retornou resposta. Tente novamente.";
+        const finalContent = result.reply || "⚠️ O assistente não retornou resposta. Tente novamente.";
 
         setMessages((prev) => [
           ...prev,
@@ -122,7 +88,7 @@ export function useChat() {
           },
         ]);
 
-        // Salva resposta do assistente no servidor de forma assíncrona
+        // Salva resposta do assistente no banco local (MySQL) de forma assíncrona
         saveMessageMutation.mutateAsync({
           userId,
           role: "assistant",
@@ -137,7 +103,7 @@ export function useChat() {
           {
             id: nanoid(),
             role: "assistant",
-            content: `❌ **Erro de comunicação:**\n\n${errorMsg}\n\nVerifique a URL do webhook nas configurações.`,
+            content: `❌ **Erro de comunicação:**\n\n${errorMsg}`,
             timestamp: Date.now(),
           },
         ]);
@@ -145,7 +111,7 @@ export function useChat() {
         setIsLoading(false);
       }
     },
-    [webhookMutation, saveMessageMutation]
+    [mentorMutation, saveMessageMutation]
   );
 
   const clearHistory = useCallback(async () => {

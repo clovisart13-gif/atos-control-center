@@ -18,3 +18,6 @@
 - [x] Aumentar limite do histórico de 100 para 500 mensagens
 - [x] Corrigir bug: histórico não carregava ao reabrir o app (staleTime: Infinity impedia nova busca ao servidor)
 - [x] Corrigir bug crítico: query retornava 500 mensagens mais ANTIGAS em vez das mais RECENTES — histórico mostrava conversas antigas e omitia as últimas
+- [x] Implementar Mentor Atos nativo no Manus com LLM integrado (sem depender de webhook externo)
+- [x] Conectar Mentor ao Supabase: busca contexto de conversation_logs, salva logs via athos-log
+- [x] Suporte a acionamento do executor n8n via athos-bridge quando Mentor decide executar ação
