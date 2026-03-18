@@ -1,0 +1,52 @@
+{
+  "query": "SELECT id, userId, role, LEFT(content, 100) as content_preview, createdAt FROM chatMessages WHERE userId = 'clovis_admin' ORDER BY id DESC LIMIT 6;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3FX9kxqoNJJuMBk.8e6390f8cc3f --database bhtqDJFFjSGsprAUaorMVq --execute SELECT id, userId, role, LEFT(content, 100) as content_preview, createdAt FROM chatMessages WHERE userId = 'clovis_admin' ORDER BY id DESC LIMIT 6;",
+  "rows": [
+    {
+      "id": "2520014",
+      "userId": "clovis_admin",
+      "role": "assistant",
+      "content_preview": "Recebi sua mensagem: \"OI\"",
+      "createdAt": "2026-03-18 19:23:39"
+    },
+    {
+      "id": "2520013",
+      "userId": "clovis_admin",
+      "role": "user",
+      "content_preview": "OI",
+      "createdAt": "2026-03-18 19:23:36"
+    },
+    {
+      "id": "2520012",
+      "userId": "clovis_admin",
+      "role": "assistant",
+      "content_preview": "O assistente não retornou resposta. Tente novamente.",
+      "createdAt": "2026-03-18 19:20:59"
+    },
+    {
+      "id": "2520011",
+      "userId": "clovis_admin",
+      "role": "user",
+      "content_preview": "OI",
+      "createdAt": "2026-03-18 19:20:58"
+    },
+    {
+      "id": "2520010",
+      "userId": "clovis_admin",
+      "role": "assistant",
+      "content_preview": "O assistente não retornou resposta. Tente novamente.",
+      "createdAt": "2026-03-18 19:20:35"
+    },
+    {
+      "id": "2520009",
+      "userId": "clovis_admin",
+      "role": "user",
+      "content_preview": "OI",
+      "createdAt": "2026-03-18 19:20:34"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tuserId\trole\tcontent_preview\tcreatedAt\n2520014\tclovis_admin\tassistant\tRecebi sua mensagem: \"OI\"\t2026-03-18 19:23:39\n2520013\tclovis_admin\tuser\tOI\t2026-03-18 19:23:36\n2520012\tclovis_admin\tassistant\tO assistente não retornou resposta. Tente novamente.\t2026-03-18 19:20:59\n2520011\tclovis_admin\tuser\tOI\t2026-03-18 19:20:58\n2520010\tclovis_admin\tassistant\tO assistente não retornou resposta. Tente novamente.\t2026-03-18 19:20:35\n2520009\tclovis_admin\tuser\tOI\t2026-03-18 19:20:34\n",
+  "stderr": "",
+  "execution_time_ms": 366
+}

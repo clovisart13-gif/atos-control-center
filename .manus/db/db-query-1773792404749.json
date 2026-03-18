@@ -1,0 +1,61 @@
+{
+  "query": "SELECT COUNT(*) as total FROM chatMessages WHERE userId = 'clovis_admin'; SELECT id, role, LEFT(content, 80) as content_preview, createdAt FROM chatMessages WHERE userId = 'clovis_admin' ORDER BY createdAt DESC LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3FX9kxqoNJJuMBk.8e6390f8cc3f --database bhtqDJFFjSGsprAUaorMVq --execute SELECT COUNT(*) as total FROM chatMessages WHERE userId = 'clovis_admin'; SELECT id, role, LEFT(content, 80) as content_preview, createdAt FROM chatMessages WHERE userId = 'clovis_admin' ORDER BY createdAt DESC LIMIT 10;",
+  "rows": [
+    {
+      "total": "770"
+    },
+    {
+      "total": "id\trole\tcontent_preview\tcreatedAt"
+    },
+    {
+      "total": "2490004\tassistant\tInsight Estratégico:  "
+    },
+    {
+      "total": "Sua solicitação é recorrente e estratégica: listar todas \t2026-03-18 00:03:06"
+    },
+    {
+      "total": "2490003\tuser\tliste pra mim todas as tabelas no supabase\t2026-03-18 00:02:58"
+    },
+    {
+      "total": "2490002\tassistant\tInsight Estratégico:  "
+    },
+    {
+      "total": "Como Athos, não acesso diretamente o banco de dados nem e\t2026-03-18 00:02:16"
+    },
+    {
+      "total": "2490001\tuser\tcarregue a nossa ultima conversa\t2026-03-18 00:02:10"
+    },
+    {
+      "total": "2460002\tassistant\tVou verificar as tabelas no Supabase para você.\t2026-03-17 22:13:43"
+    },
+    {
+      "total": "2460001\tuser\tathos liste as tabelas que eu tenho no supabase\t2026-03-17 22:13:37"
+    },
+    {
+      "total": "2430012\tassistant\tInsight Estratégico:  "
+    },
+    {
+      "total": "Agora o foco está no **Latenode**: você quer garantir que\t2026-03-17 00:29:56"
+    },
+    {
+      "total": "2430011\tuser\tnao entendi, preciso que vc me oriente passo a passo como configurar os nodes no\t2026-03-17 00:29:43"
+    },
+    {
+      "total": "2430010\tassistant\tInsight Estratégico:  "
+    },
+    {
+      "total": "Perfeito, agora ficou claro:  "
+    },
+    {
+      "total": "O problema não está na gra\t2026-03-17 00:27:51"
+    },
+    {
+      "total": "2430009\tuser\tnao ficou claro, hoje vc guarda no banco de dados, o problema é que converso com\t2026-03-17 00:27:43"
+    }
+  ],
+  "messages": [],
+  "stdout": "total\n770\nid\trole\tcontent_preview\tcreatedAt\n2490004\tassistant\tInsight Estratégico:  \nSua solicitação é recorrente e estratégica: listar todas \t2026-03-18 00:03:06\n2490003\tuser\tliste pra mim todas as tabelas no supabase\t2026-03-18 00:02:58\n2490002\tassistant\tInsight Estratégico:  \nComo Athos, não acesso diretamente o banco de dados nem e\t2026-03-18 00:02:16\n2490001\tuser\tcarregue a nossa ultima conversa\t2026-03-18 00:02:10\n2460002\tassistant\tVou verificar as tabelas no Supabase para você.\t2026-03-17 22:13:43\n2460001\tuser\tathos liste as tabelas que eu tenho no supabase\t2026-03-17 22:13:37\n2430012\tassistant\tInsight Estratégico:  \nAgora o foco está no **Latenode**: você quer garantir que\t2026-03-17 00:29:56\n2430011\tuser\tnao entendi, preciso que vc me oriente passo a passo como configurar os nodes no\t2026-03-17 00:29:43\n2430010\tassistant\tInsight Estratégico:  \nPerfeito, agora ficou claro:  \nO problema não está na gra\t2026-03-17 00:27:51\n2430009\tuser\tnao ficou claro, hoje vc guarda no banco de dados, o problema é que converso com\t2026-03-17 00:27:43\n",
+  "stderr": "",
+  "execution_time_ms": 798
+}

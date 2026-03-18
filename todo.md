@@ -17,3 +17,4 @@
 - [x] Corrigir persistência: histórico não sobrescreve mensagens novas ao recarregar
 - [x] Aumentar limite do histórico de 100 para 500 mensagens
 - [x] Corrigir bug: histórico não carregava ao reabrir o app (staleTime: Infinity impedia nova busca ao servidor)
+- [x] Corrigir bug crítico: query retornava 500 mensagens mais ANTIGAS em vez das mais RECENTES — histórico mostrava conversas antigas e omitia as últimas

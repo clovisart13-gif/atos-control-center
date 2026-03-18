@@ -1,0 +1,25 @@
+{
+  "query": "SELECT COUNT(*) as total_all FROM chatMessages WHERE userId = 'clovis_admin'; SELECT COUNT(*) as total_limit500 FROM (SELECT id FROM chatMessages WHERE userId = 'clovis_admin' ORDER BY createdAt LIMIT 500) t; SELECT MIN(id) as min_id, MAX(id) as max_id, MIN(createdAt) as oldest, MAX(createdAt) as newest FROM chatMessages WHERE userId = 'clovis_admin';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3FX9kxqoNJJuMBk.8e6390f8cc3f --database bhtqDJFFjSGsprAUaorMVq --execute SELECT COUNT(*) as total_all FROM chatMessages WHERE userId = 'clovis_admin'; SELECT COUNT(*) as total_limit500 FROM (SELECT id FROM chatMessages WHERE userId = 'clovis_admin' ORDER BY createdAt LIMIT 500) t; SELECT MIN(id) as min_id, MAX(id) as max_id, MIN(createdAt) as oldest, MAX(createdAt) as newest FROM chatMessages WHERE userId = 'clovis_admin';",
+  "rows": [
+    {
+      "total_all": "784"
+    },
+    {
+      "total_all": "total_limit500"
+    },
+    {
+      "total_all": "500"
+    },
+    {
+      "total_all": "min_id\tmax_id\toldest\tnewest"
+    },
+    {
+      "total_all": "1\t2520014\t2026-03-04 18:01:17\t2026-03-18 19:23:39"
+    }
+  ],
+  "messages": [],
+  "stdout": "total_all\n784\ntotal_limit500\n500\nmin_id\tmax_id\toldest\tnewest\n1\t2520014\t2026-03-04 18:01:17\t2026-03-18 19:23:39\n",
+  "stderr": "",
+  "execution_time_ms": 450
+}

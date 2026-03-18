@@ -8,7 +8,7 @@ import { transcribeAudio } from "./_core/voiceTranscription";
 import { TRPCError } from "@trpc/server";
 import { getDb } from "./db";
 import { chatMessages } from "../drizzle/schema";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 
 export const appRouter = router({
   system: systemRouter,
@@ -32,13 +32,15 @@ export const appRouter = router({
       .query(async ({ input }) => {
         const db = await getDb();
         if (!db) return [];
+        // Busca as 500 mensagens MAIS RECENTES e depois inverte para ordem cronológica
         const messages = await db
           .select()
           .from(chatMessages)
           .where(eq(chatMessages.userId, input.userId))
-          .orderBy(chatMessages.createdAt)
+          .orderBy(desc(chatMessages.createdAt))
           .limit(500);
-        return messages;
+        // Inverte para exibição cronológica (mais antiga primeiro)
+        return messages.reverse();
       }),
 
     saveMessage: publicProcedure
