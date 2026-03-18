@@ -21,3 +21,5 @@
 - [x] Implementar Mentor Atos nativo no Manus com LLM integrado (sem depender de webhook externo)
 - [x] Conectar Mentor ao Supabase: busca contexto de conversation_logs, salva logs via athos-log
 - [x] Suporte a acionamento do executor n8n via athos-bridge quando Mentor decide executar ação
+- [x] Adicionar suporte a colar imagens via Ctrl+V/paste no chat
+- [x] Enriquecer system prompt do Mentor com contexto real do Supabase (R2PB, Mirage, arquitetura cognitiva, estado atual)

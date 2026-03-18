@@ -125,6 +125,38 @@ export default function ChatInput({ onSend, isLoading, initialMessage }: ChatInp
     }
   };
 
+  // Suporte a colar imagens via Ctrl+V / paste
+  const handlePaste = useCallback(async (e: React.ClipboardEvent) => {
+    const items = Array.from(e.clipboardData?.items || []);
+    const imageItems = items.filter(item => item.type.startsWith('image/'));
+    
+    if (imageItems.length === 0) return; // deixa o paste de texto funcionar normalmente
+    
+    e.preventDefault();
+    
+    for (const item of imageItems) {
+      const file = item.getAsFile();
+      if (!file) continue;
+      
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error('Imagem muito grande. Máximo 10MB.');
+        continue;
+      }
+      
+      try {
+        const dataUrl = await fileToDataUrl(file);
+        const name = `imagem-colada-${Date.now()}.png`;
+        setAttachments(prev => [
+          ...prev,
+          { type: 'image', url: dataUrl, name, previewUrl: dataUrl, file },
+        ]);
+        toast.success('Imagem colada!');
+      } catch {
+        toast.error('Erro ao processar imagem colada.');
+      }
+    }
+  }, []);
+
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
@@ -307,6 +339,7 @@ export default function ChatInput({ onSend, isLoading, initialMessage }: ChatInp
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
           placeholder={
             isRecording
               ? "Gravando áudio..."
