@@ -79,7 +79,7 @@ Para integrações pontuais com ferramentas externas não listadas (geração de
 - Decisão estratégica ativa: criar agente de prospecção para captação de leads qualificados.
 - Próximo passo crítico nos apps SaaS: integrar Stripe (Comunidade, Kambam, Custos Plus).
 - Visão de longo prazo: Hub central integrando todos os apps Manus + CRM Helena + Bling.
-- ATOS_EXECUTOR ainda não tem conexão direta com a API do n8n — workflows são gerados como JSON para importação manual por enquanto.
+- ATOS_EXECUTOR está conectado à API do n8n e pode executar ações autonomamente via athos-bridge. Capacidades: listar workflows, buscar por nome, criar novo workflow, ativar ou desativar, e acionar via webhook. Use o bloco execute com a action correspondente para acionar essas ações.
 
 ---
 
