@@ -73,8 +73,9 @@ export async function saveLog(params: {
 }
 
 /**
- * Aciona o executor n8n via Edge Function athos-bridge.
+ * Aciona o ATOS_EXECUTOR (n8n) diretamente via API nativa.
  * Usado quando o Mentor decide executar uma ação.
+ * Fallback: tenta a Edge Function athos-bridge do Supabase se n8n não estiver configurado.
  */
 export async function dispatchToExecutor(command: {
   action: string;
@@ -82,29 +83,40 @@ export async function dispatchToExecutor(command: {
   meta?: Record<string, unknown>;
 }): Promise<{ success: boolean; data?: unknown; error?: string }> {
   try {
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/athos-bridge`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-bridge-key": BRIDGE_API_KEY,
-      },
-      body: JSON.stringify(command),
-    });
+    // Tenta usar o athos-bridge nativo do Manus (n8n direto)
+    const { dispatchAction } = await import("./athosBridge");
+    const result = await dispatchAction(command.action, command.args ?? {});
+    console.log(`[ATOS_EXECUTOR] Ação '${command.action}' executada com sucesso`);
+    return { success: true, data: result };
+  } catch (bridgeErr: any) {
+    console.error("[ATOS_EXECUTOR] Erro no athos-bridge nativo:", bridgeErr.message);
 
-    const text = await res.text();
-
-    if (!res.ok) {
-      console.error("[Supabase] Erro no athos-bridge:", res.status, text);
-      return { success: false, error: `Status ${res.status}: ${text}` };
-    }
-
+    // Fallback: tenta a Edge Function do Supabase
     try {
-      return { success: true, data: JSON.parse(text) };
-    } catch {
-      return { success: true, data: text };
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/athos-bridge`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-bridge-key": BRIDGE_API_KEY,
+        },
+        body: JSON.stringify(command),
+      });
+
+      const text = await res.text();
+
+      if (!res.ok) {
+        console.error("[ATOS_EXECUTOR] Fallback Supabase bridge erro:", res.status, text);
+        return { success: false, error: `Status ${res.status}: ${text}` };
+      }
+
+      try {
+        return { success: true, data: JSON.parse(text) };
+      } catch {
+        return { success: true, data: text };
+      }
+    } catch (fallbackErr: any) {
+      console.error("[ATOS_EXECUTOR] Fallback também falhou:", fallbackErr.message);
+      return { success: false, error: bridgeErr.message };
     }
-  } catch (err: any) {
-    console.error("[Supabase] Falha na chamada athos-bridge:", err);
-    return { success: false, error: err.message };
   }
 }
