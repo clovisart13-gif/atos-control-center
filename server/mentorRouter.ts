@@ -228,7 +228,11 @@ export const mentorRouter = router({
       const n8nContext = await resolveN8nContext(message).catch(() => null);
 
       // 4. Monta o array de mensagens para o LLM
-      // Se há contexto do n8n, injeta como mensagem do sistema antes da mensagem do usuário
+      // Injeta o contexto do n8n DENTRO da mensagem do usuário para garantir que o LLM use os dados reais
+      const userMessageWithContext = n8nContext
+        ? `${n8nContext}\n\n---\nPergunta de Clóvis: ${message}\n\nIMPORTANTE: Use EXCLUSIVAMENTE os dados acima fornecidos pelo ATOS_EXECUTOR para responder. NÃO use conhecimento de treinamento sobre o n8n. Os dados acima são os dados REAIS e ATUAIS do sistema.`
+        : message;
+
       const llmMessages: { role: "system" | "user" | "assistant"; content: string }[] = [
         { role: "system" as const, content: ATOS_SYSTEM_PROMPT },
         ...contextMessages
@@ -237,10 +241,7 @@ export const mentorRouter = router({
             role: m.role as "user" | "assistant",
             content: m.content,
           })),
-        ...(n8nContext
-          ? [{ role: "system" as const, content: n8nContext }]
-          : []),
-        { role: "user" as const, content: message },
+        { role: "user" as const, content: userMessageWithContext },
       ];
 
       // 4. Chama o LLM nativo do Manus
