@@ -210,12 +210,18 @@ export const mentorRouter = router({
   chat: publicProcedure
     .input(
       z.object({
-        message: z.string().min(1),
+        message: z.string().default(""), // Pode ser vazio quando só há imagem
+        imageUrl: z.string().url().optional(), // URL da imagem colada (opcional)
         userId: z.string().default("clovis_admin"),
       })
+      .refine(
+        (data) => data.message.length > 0 || !!data.imageUrl,
+        { message: "Envie uma mensagem ou uma imagem" }
+      )
     )
     .mutation(async ({ input }) => {
-      const { message, userId } = input;
+      const { message, imageUrl, userId } = input;
+      const effectiveMessage = message || (imageUrl ? "Analise esta imagem" : "");
 
       // 1. Busca contexto do Supabase (últimas 20 mensagens)
       let contextMessages: { role: string; content: string }[] = [];
@@ -230,20 +236,29 @@ export const mentorRouter = router({
       }
 
       // 2. Salva mensagem do usuário no Supabase (assíncrono, não bloqueia)
-      saveLog({ role: "user", message }).catch((err) =>
+      saveLog({ role: "user", message: effectiveMessage + (imageUrl ? " [imagem anexada]" : "") }).catch((err) =>
         console.error("[Mentor] Erro ao salvar log do usuário:", err)
       );
 
       // 3. Detecta intenção e busca dados reais do n8n (se aplicável)
-      const n8nContext = await resolveN8nContext(message).catch(() => null);
+      const n8nContext = await resolveN8nContext(effectiveMessage).catch(() => null);
 
       // 4. Monta o array de mensagens para o LLM
-      // Injeta o contexto do n8n DENTRO da mensagem do usuário para garantir que o LLM use os dados reais
-      const userMessageWithContext = n8nContext
-        ? `${n8nContext}\n\n---\nPergunta de Clóvis: ${message}\n\nIMPORTANTE: Use EXCLUSIVAMENTE os dados acima fornecidos pelo ATOS_EXECUTOR para responder. NÃO use conhecimento de treinamento sobre o n8n. Os dados acima são os dados REAIS e ATUAIS do sistema.`
-        : message;
+      // Suporta multimodal: se há imagem, envia como content array com image_url
+      const textContent = n8nContext
+        ? `${n8nContext}\n\n---\nPergunta de Clóvis: ${effectiveMessage}\n\nIMPORTANTE: Use EXCLUSIVAMENTE os dados acima fornecidos pelo ATOS_EXECUTOR para responder. NÃO use conhecimento de treinamento sobre o n8n. Os dados acima são os dados REAIS e ATUAIS do sistema.`
+        : effectiveMessage;
 
-      const llmMessages: { role: "system" | "user" | "assistant"; content: string }[] = [
+      // Monta o conteúdo da mensagem do usuário (texto + imagem se houver)
+      type UserContent = string | Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string; detail: "auto" } }>;
+      const userContent: UserContent = imageUrl
+        ? [
+            { type: "text" as const, text: textContent },
+            { type: "image_url" as const, image_url: { url: imageUrl, detail: "auto" as const } },
+          ]
+        : textContent;
+
+      const llmMessages: Array<{ role: "system" | "user" | "assistant"; content: any }> = [
         { role: "system" as const, content: ATOS_SYSTEM_PROMPT },
         ...contextMessages
           .filter((m) => m.role === "user" || m.role === "assistant")
@@ -251,7 +266,7 @@ export const mentorRouter = router({
             role: m.role as "user" | "assistant",
             content: m.content,
           })),
-        { role: "user" as const, content: userMessageWithContext },
+        { role: "user" as const, content: userContent },
       ];
 
       // 4. Chama o LLM nativo do Manus

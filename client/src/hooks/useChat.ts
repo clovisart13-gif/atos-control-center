@@ -43,7 +43,22 @@ export function useChat() {
   const mentorMutation = trpc.mentor.chat.useMutation();
   const saveMessageMutation = trpc.chat.saveMessage.useMutation();
   const clearHistoryMutation = trpc.chat.clearHistory.useMutation();
+  const uploadImageMutation = trpc.upload.image.useMutation();
   const utils = trpc.useUtils();
+
+  /**
+   * Faz upload de uma imagem (dataUrl base64) para o S3 e retorna a URL pública.
+   */
+  const uploadImageToS3 = useCallback(
+    async (dataUrl: string, mimeType: string = "image/png"): Promise<string> => {
+      const result = await uploadImageMutation.mutateAsync({
+        imageBase64: dataUrl,
+        mimeType,
+      });
+      return result.url;
+    },
+    [uploadImageMutation]
+  );
 
   const sendMessage = useCallback(
     async (content: string, attachments?: Attachment[]) => {
@@ -66,13 +81,31 @@ export function useChat() {
       saveMessageMutation.mutateAsync({
         userId,
         role: "user",
-        content: content.trim(),
+        content: content.trim() || "[imagem enviada]",
       }).catch((err) => console.error("[Chat] Erro ao salvar mensagem do usuário:", err));
 
       try {
+        // Verifica se há imagem nos attachments
+        const imageAttachment = attachments?.find((a) => a.type === "image" && a.url);
+        let imageUrl: string | undefined;
+
+        if (imageAttachment?.url) {
+          if (imageAttachment.url.startsWith("http")) {
+            // Já é URL pública
+            imageUrl = imageAttachment.url;
+          } else {
+            // É dataUrl base64 — faz upload para o S3
+            console.log("[Chat] Fazendo upload da imagem para S3...");
+            const mimeType = imageAttachment.url.match(/^data:([^;]+);/)?.[1] ?? "image/png";
+            imageUrl = await uploadImageToS3(imageAttachment.url, mimeType);
+            console.log("[Chat] Imagem enviada para S3:", imageUrl);
+          }
+        }
+
         // Chama o Mentor nativo do Manus (com contexto do Supabase)
         const result = await mentorMutation.mutateAsync({
           message: content.trim(),
+          imageUrl,
           userId,
         });
 
@@ -111,7 +144,7 @@ export function useChat() {
         setIsLoading(false);
       }
     },
-    [mentorMutation, saveMessageMutation]
+    [mentorMutation, saveMessageMutation, uploadImageToS3]
   );
 
   const clearHistory = useCallback(async () => {

@@ -3,7 +3,7 @@
  * Design: Obsidian Forge — barra compacta com logo, título e ações
  */
 import { ASSETS, APP_CONFIG } from "@shared/const";
-import { Trash2, Settings, Wifi, WifiOff, CheckCircle2 } from "lucide-react";
+import { Trash2, Wifi, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -16,18 +16,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-  DialogClose,
-} from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
-import { toast } from "sonner";
+import { trpc } from "@/lib/trpc";
 
 interface ChatHeaderProps {
   onClearHistory: () => void;
@@ -35,37 +25,30 @@ interface ChatHeaderProps {
 }
 
 export default function ChatHeader({ onClearHistory, messageCount }: ChatHeaderProps) {
-  // Lê sempre do localStorage para mostrar o estado atual
-  const [webhookUrl, setWebhookUrl] = useState(
-    () => localStorage.getItem("atos-webhook-url") || import.meta.env.VITE_WEBHOOK_URL || ""
-  );
-  const [tempUrl, setTempUrl] = useState(webhookUrl);
-  const [isOpen, setIsOpen] = useState(false);
-  const isConnected = !!webhookUrl;
+  const [isOnline, setIsOnline] = useState<boolean | null>(null);
 
-  // Quando o diálogo abre, sempre carrega a URL atual do localStorage
+  // Heartbeat: verifica se o backend está online a cada 30 segundos
+  const pingQuery = trpc.ping.useQuery(undefined, {
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
+    retry: 1,
+  });
+
   useEffect(() => {
-    if (isOpen) {
-      const current = localStorage.getItem("atos-webhook-url") || import.meta.env.VITE_WEBHOOK_URL || "";
-      setTempUrl(current);
+    if (pingQuery.isSuccess) {
+      setIsOnline(true);
+    } else if (pingQuery.isError) {
+      setIsOnline(false);
     }
-  }, [isOpen]);
+  }, [pingQuery.isSuccess, pingQuery.isError]);
 
-  const handleSave = () => {
-    const trimmed = tempUrl.trim();
-    if (trimmed) {
-      // Salva no localStorage imediatamente
-      localStorage.setItem("atos-webhook-url", trimmed);
-      setWebhookUrl(trimmed);
-      toast.success("URL do webhook salva com sucesso!");
-    } else {
-      // Remove se vazio
-      localStorage.removeItem("atos-webhook-url");
-      setWebhookUrl("");
-      toast.info("URL do webhook removida.");
-    }
-    setIsOpen(false);
-  };
+  const statusLabel =
+    isOnline === null ? "Verificando..." :
+    isOnline ? "Online" : "Offline";
+
+  const statusClass =
+    isOnline === null ? "bg-muted/30 text-muted-foreground" :
+    isOnline ? "bg-emerald-500/10 text-emerald-400" : "bg-amber-500/10 text-amber-400";
 
   return (
     <header className="sticky top-0 z-50 flex items-center justify-between px-4 py-3 border-b border-border bg-background/80 backdrop-blur-xl">
@@ -88,74 +71,13 @@ export default function ChatHeader({ onClearHistory, messageCount }: ChatHeaderP
 
       {/* Ações */}
       <div className="flex items-center gap-1">
-        {/* Indicador de conexão */}
+        {/* Indicador de conexão — heartbeat real ao backend */}
         <div
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium mr-1 ${
-            isConnected
-              ? "bg-emerald-500/10 text-emerald-400"
-              : "bg-amber-500/10 text-amber-400"
-          }`}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium mr-1 transition-colors ${statusClass}`}
         >
-          {isConnected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-          <span className="hidden sm:inline">{isConnected ? "Conectado" : "Offline"}</span>
+          {isOnline ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+          <span className="hidden sm:inline">{statusLabel}</span>
         </div>
-
-        {/* Configurações (webhook URL) */}
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
-              <Settings className="w-4 h-4" />
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="bg-card border-border max-w-md">
-            <DialogHeader>
-              <DialogTitle className="text-foreground">Configurações</DialogTitle>
-              <DialogDescription className="text-muted-foreground">
-                Configure a URL do webhook do n8n para conectar ao Mentor Cognitivo.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-3 py-4">
-              <label className="text-sm font-medium text-foreground">
-                Webhook URL
-              </label>
-              <input
-                type="url"
-                value={tempUrl}
-                onChange={(e) => setTempUrl(e.target.value)}
-                placeholder="https://seu-n8n.com/webhook/..."
-                className="w-full px-3 py-2.5 rounded-lg bg-background border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50"
-              />
-              {/* Mostra a URL atualmente salva para referência */}
-              {webhookUrl && (
-                <div className="flex items-start gap-2 p-2.5 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 mt-0.5 flex-shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-[10px] text-emerald-400 font-medium mb-0.5">URL atual salva:</p>
-                    <p className="text-[10px] text-muted-foreground break-all leading-relaxed">{webhookUrl}</p>
-                  </div>
-                </div>
-              )}
-              <p className="text-[11px] text-muted-foreground">
-                Cole a URL do webhook "WF Mentor Cognitivo API" do seu n8n. A URL é salva imediatamente — não é necessário recarregar a página.
-              </p>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="ghost"
-                className="text-muted-foreground"
-                onClick={() => setIsOpen(false)}
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleSave}
-                className="bg-primary text-primary-foreground hover:bg-primary/90"
-              >
-                Salvar
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
         {/* Limpar histórico */}
         {messageCount > 0 && (
@@ -169,7 +91,7 @@ export default function ChatHeader({ onClearHistory, messageCount }: ChatHeaderP
               <AlertDialogHeader>
                 <AlertDialogTitle className="text-foreground">Limpar histórico?</AlertDialogTitle>
                 <AlertDialogDescription className="text-muted-foreground">
-                  Todas as {messageCount} mensagens serão removidas permanentemente do navegador.
+                  Todas as {messageCount} mensagens serão removidas permanentemente.
                   Esta ação não pode ser desfeita.
                 </AlertDialogDescription>
               </AlertDialogHeader>

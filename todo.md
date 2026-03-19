@@ -24,3 +24,9 @@
 - [x] Adicionar suporte a colar imagens via Ctrl+V/paste no chat
 - [x] Enriquecer system prompt do Mentor com contexto real do Supabase (R2PB, Mirage, arquitetura cognitiva, estado atual)
 - [x] Atualizar system prompt com perfil completo de Clóvis, mapa do ecossistema (R2PB, Mirage, 5 apps Manus, ferramentas externas) e orientações de quando usar cada plataforma
+- [x] Corrigir erro ao enviar imagem sem texto — backend rejeita mensagem vazia quando só há imagem colada
+- [x] Implementar upload de imagem para S3 antes de enviar ao Mentor (suporte a imagens reais via URL pública)
+- [x] Implementar heartbeat real ao backend — indicador Online/Offline mostra status correto (era sempre Offline)
+- [x] Adicionar endpoint de ping/health no backend para verificar disponibilidade
+- [x] Remover configuração de webhook obsoleta do ChatHeader (sistema agora usa backend nativo)
+- [x] Adicionar endpoint de upload de imagem no backend (storagePut para S3)

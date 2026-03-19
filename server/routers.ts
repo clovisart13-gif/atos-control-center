@@ -14,6 +14,12 @@ import { mentorRouter } from "./mentorRouter";
 export const appRouter = router({
   system: systemRouter,
   mentor: mentorRouter,
+
+  /**
+   * Heartbeat — verifica se o backend está online
+   */
+  ping: publicProcedure.query(() => ({ ok: true, ts: Date.now() })),
+
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {
@@ -71,6 +77,27 @@ export const appRouter = router({
         if (!db) return { success: false };
         await db.delete(chatMessages).where(eq(chatMessages.userId, input.userId));
         return { success: true };
+      }),
+  }),
+
+  /**
+   * Upload de imagem para o S3 — retorna URL pública para enviar ao Mentor
+   */
+  upload: router({
+    image: publicProcedure
+      .input(
+        z.object({
+          imageBase64: z.string(),
+          mimeType: z.string().default("image/png"),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const { imageBase64, mimeType } = input;
+        const ext = mimeType.includes("jpeg") || mimeType.includes("jpg") ? "jpg" : "png";
+        const fileKey = `chat-images/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+        const imageBuffer = Buffer.from(imageBase64.replace(/^data:image\/[a-z]+;base64,/, ""), "base64");
+        const { url } = await storagePut(fileKey, imageBuffer, mimeType);
+        return { url };
       }),
   }),
 
