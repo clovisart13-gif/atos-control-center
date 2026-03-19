@@ -13,7 +13,7 @@ import { z } from "zod";
 import { publicProcedure, router } from "./_core/trpc";
 import { invokeLLM } from "./_core/llm";
 import { fetchConversationContext, saveLog, dispatchToExecutor } from "./supabase";
-import { listWorkflows, findWorkflowByName } from "./athosBridge";
+import { listWorkflows, findWorkflowByName, getWorkflow } from "./athosBridge";
 
 /**
  * Detecta intenção do usuário e busca dados do n8n antes de chamar o LLM.
@@ -21,6 +21,41 @@ import { listWorkflows, findWorkflowByName } from "./athosBridge";
  */
 async function resolveN8nContext(message: string): Promise<string | null> {
   const lower = message.toLowerCase();
+
+  // Intenção: analisar/inspecionar workflow específico
+  const analyzePatterns = [
+    /anali[sz]/i, /inspecion/i, /ver detalhes/i, /estrutura do workflow/i,
+    /como funciona/i, /o que faz/i, /detalhe/i, /examinar/i, /revisar workflow/i,
+    /por que não funciona/i, /problema no workflow/i, /erro no workflow/i
+  ];
+  const isAnalyze = analyzePatterns.some(p => p.test(message));
+
+  if (isAnalyze) {
+    // Tenta extrair nome ou ID do workflow da mensagem
+    try {
+      const workflows = await listWorkflows();
+      // Procura por qualquer nome de workflow mencionado na mensagem
+      const matched = workflows.find(w =>
+        message.toLowerCase().includes(w.name.toLowerCase()) ||
+        message.includes(w.id)
+      );
+
+      if (matched) {
+        // Busca o JSON completo do workflow
+        const detail = await getWorkflow(matched.id);
+        const nodeNames = Array.isArray(detail.nodes)
+          ? (detail.nodes as any[]).map((n: any) => `  - **${n.name}** (tipo: ${n.type?.split('.')?.pop() ?? n.type})`).join("\n")
+          : "Não foi possível listar os nós";
+        return `[ATOS_EXECUTOR — dados reais do n8n]\nWorkflow analisado: **${detail.name}** (ID: ${detail.id})\nStatus: ${detail.active ? "ativo" : "inativo"}\n\nNós do workflow (${Array.isArray(detail.nodes) ? detail.nodes.length : 0}):\n${nodeNames}\n\nJSON completo disponível para análise aprofundada.\n\nDados brutos dos nós:\n${JSON.stringify(detail.nodes, null, 2).slice(0, 3000)}`;
+      } else {
+        // Nenhum workflow identificado na mensagem — lista todos para o mentor escolher
+        const list = workflows.map((w) => `- **${w.name}** (ID: ${w.id}) — ${w.active ? "ativo" : "inativo"}`).join("\n");
+        return `[ATOS_EXECUTOR — dados reais do n8n]\nNão identifiquei qual workflow analisar. Workflows disponíveis:\n${list}`;
+      }
+    } catch (err: any) {
+      return `[ATOS_EXECUTOR] Erro ao analisar workflow: ${err.message}`;
+    }
+  }
 
   // Intenção: listar workflows
   if (
