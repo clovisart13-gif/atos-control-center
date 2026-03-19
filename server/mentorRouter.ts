@@ -13,6 +13,39 @@ import { z } from "zod";
 import { publicProcedure, router } from "./_core/trpc";
 import { invokeLLM } from "./_core/llm";
 import { fetchConversationContext, saveLog, dispatchToExecutor } from "./supabase";
+import { listWorkflows, findWorkflowByName } from "./athosBridge";
+
+/**
+ * Detecta intenção do usuário e busca dados do n8n antes de chamar o LLM.
+ * Isso garante que o ATHOS_MENTOR sempre tenha dados reais para responder.
+ */
+async function resolveN8nContext(message: string): Promise<string | null> {
+  const lower = message.toLowerCase();
+
+  // Intenção: listar workflows
+  if (
+    lower.includes("list") ||
+    lower.includes("workflows") ||
+    lower.includes("fluxos") ||
+    lower.includes("automações") ||
+    lower.includes("quais workflow") ||
+    lower.includes("ver workflow") ||
+    lower.includes("mostrar workflow")
+  ) {
+    try {
+      const workflows = await listWorkflows();
+      if (workflows.length === 0) return "[ATOS_EXECUTOR] Nenhum workflow encontrado no n8n.";
+      const list = workflows
+        .map((w) => `- **${w.name}** (ID: ${w.id}) — ${w.active ? "ativo" : "inativo"}`)
+        .join("\n");
+      return `[ATOS_EXECUTOR — dados reais do n8n]\nWorkflows encontrados (${workflows.length}):\n${list}`;
+    } catch (err: any) {
+      return `[ATOS_EXECUTOR] Erro ao listar workflows: ${err.message}`;
+    }
+  }
+
+  return null;
+}
 
 const ATOS_SYSTEM_PROMPT = `Você é ATHOS_MENTOR — Mentor Cognitivo Estratégico do ecossistema de Clóvis.
 
@@ -139,13 +172,22 @@ export const mentorRouter = router({
         console.error("[Mentor] Erro ao salvar log do usuário:", err)
       );
 
-      // 3. Monta o array de mensagens para o LLM
-      const llmMessages = [
+      // 3. Detecta intenção e busca dados reais do n8n (se aplicável)
+      const n8nContext = await resolveN8nContext(message).catch(() => null);
+
+      // 4. Monta o array de mensagens para o LLM
+      // Se há contexto do n8n, injeta como mensagem do sistema antes da mensagem do usuário
+      const llmMessages: { role: "system" | "user" | "assistant"; content: string }[] = [
         { role: "system" as const, content: ATOS_SYSTEM_PROMPT },
-        ...contextMessages.map((m) => ({
-          role: m.role as "user" | "assistant",
-          content: m.content,
-        })),
+        ...contextMessages
+          .filter((m) => m.role === "user" || m.role === "assistant")
+          .map((m) => ({
+            role: m.role as "user" | "assistant",
+            content: m.content,
+          })),
+        ...(n8nContext
+          ? [{ role: "system" as const, content: n8nContext }]
+          : []),
         { role: "user" as const, content: message },
       ];
 
