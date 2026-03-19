@@ -35,10 +35,20 @@ async function resolveN8nContext(message: string): Promise<string | null> {
     try {
       const workflows = await listWorkflows();
       // Procura por qualquer nome de workflow mencionado na mensagem
-      const matched = workflows.find(w =>
-        message.toLowerCase().includes(w.name.toLowerCase()) ||
-        message.includes(w.id)
-      );
+      // Busca por nome parcial: verifica se qualquer palavra-chave da mensagem aparece no nome do workflow
+      // ou se qualquer parte do nome do workflow aparece na mensagem
+      const msgLower = message.toLowerCase();
+      const matched = workflows.find(w => {
+        const nameLower = w.name.toLowerCase();
+        // Verifica se a mensagem contém parte do nome do workflow (pelo menos 6 chars)
+        const nameWords = nameLower.split(/[\s\-_]+/).filter(w => w.length >= 4);
+        return (
+          msgLower.includes(nameLower) ||
+          nameLower.includes(msgLower.replace(/[^a-z0-9_\-]/g, '').slice(0, 20)) ||
+          message.includes(w.id) ||
+          nameWords.some(word => msgLower.includes(word))
+        );
+      });
 
       if (matched) {
         // Busca o JSON completo do workflow
