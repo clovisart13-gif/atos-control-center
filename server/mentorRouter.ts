@@ -13,7 +13,7 @@ import { z } from "zod";
 import { publicProcedure, router } from "./_core/trpc";
 import { invokeLLM } from "./_core/llm";
 import { fetchConversationContext, saveLog, dispatchToExecutor } from "./supabase";
-import { listWorkflows, findWorkflowByName, getWorkflow } from "./athosBridge";
+import { listWorkflows, findWorkflowByName, getWorkflow, listSupabaseTables, querySupabaseTable, countSupabaseTable, dispatchActionExtended } from "./athosBridge";
 
 /**
  * Detecta intenção do usuário e busca dados do n8n antes de chamar o LLM.
@@ -86,6 +86,26 @@ async function resolveN8nContext(message: string): Promise<string | null> {
       return `[ATOS_EXECUTOR — dados reais do n8n]\nWorkflows encontrados (${workflows.length}):\n${list}`;
     } catch (err: any) {
       return `[ATOS_EXECUTOR] Erro ao listar workflows: ${err.message}`;
+    }
+  }
+
+  // Intenção: listar tabelas do Supabase
+  if (
+    lower.includes("tabelas") ||
+    lower.includes("tables") ||
+    lower.includes("supabase") ||
+    lower.includes("banco de dados") ||
+    lower.includes("database") ||
+    lower.includes("quais tabelas") ||
+    lower.includes("listar tabelas")
+  ) {
+    try {
+      const tables = await listSupabaseTables();
+      if (tables.length === 0) return "[ATOS_EXECUTOR — Supabase] Nenhuma tabela encontrada no schema público.";
+      const list = tables.map(t => `- **${t.name}** (schema: ${t.schema})`).join("\n");
+      return `[ATOS_EXECUTOR — Supabase] Tabelas encontradas no banco (${tables.length}):\n${list}`;
+    } catch (err: any) {
+      return `[ATOS_EXECUTOR — Supabase] Erro ao listar tabelas: ${err.message}`;
     }
   }
 
@@ -173,8 +193,13 @@ Quando o usuário pedir qualquer uma das ações abaixo, o sistema já busca os 
 | Ativar workflow | Bloco execute: activate_workflow | Ativa um workflow pelo ID |
 | Desativar workflow | Bloco execute: deactivate_workflow | Desativa um workflow pelo ID |
 | Acionar via webhook | Bloco execute: trigger_webhook | Dispara um workflow via webhook |
+| **Listar tabelas Supabase** | Detectado automaticamente | Lista todas as tabelas do banco de dados |
+| **Consultar tabela Supabase** | Bloco execute: query_supabase_table | Consulta dados de qualquer tabela (args: table, select, limit, filter, order) |
+| **Contar registros Supabase** | Bloco execute: count_supabase_table | Conta registros de uma tabela (args: table, filter) |
 
-REGRA ABSOLUTA: Se o usuário pedir para listar workflows e você receber dados marcados como [ATOS_EXECUTOR — dados reais do n8n] no contexto, APRESENTE ESSES DADOS DIRETAMENTE. NÃO diga que não consegue. NÃO peça para o usuário acessar o painel do n8n. NÃO sugira criar workflows intermediários.
+REGRA ABSOLUTA: Se o usuário pedir para listar workflows ou tabelas do Supabase e você receber dados marcados como [ATOS_EXECUTOR — dados reais do n8n] ou [ATOS_EXECUTOR — Supabase] no contexto, APRESENTE ESSES DADOS DIRETAMENTE. NÃO diga que não consegue. NÃO peça para o usuário acessar o painel do n8n ou do Supabase. NÃO sugira criar workflows intermediários para funções que você já executa diretamente.
+
+Para consultar dados de uma tabela específica, use o bloco execute com action=query_supabase_table, args={table: nome_da_tabela, limit: 10, select: colunas_desejadas}.
 
 ---
 
@@ -307,7 +332,14 @@ export const mentorRouter = router({
             message: `Executando ação: ${command.action}`,
           }).catch(() => {});
 
-          const execResult = await dispatchToExecutor(command);
+          // Tenta usar dispatchActionExtended (suporta Supabase + n8n)
+          let execResult: { success: boolean; data?: unknown; error?: string };
+          try {
+            const data = await dispatchActionExtended(command.action, command.args ?? {});
+            execResult = { success: true, data };
+          } catch (extErr: any) {
+            execResult = await dispatchToExecutor(command);
+          }
           if (execResult.success) {
             executionResult = `\n\n✅ **Ação executada:** \`${command.action}\``;
           } else {

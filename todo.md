@@ -30,3 +30,8 @@
 - [x] Adicionar endpoint de ping/health no backend para verificar disponibilidade
 - [x] Remover configuração de webhook obsoleta do ChatHeader (sistema agora usa backend nativo)
 - [x] Adicionar endpoint de upload de imagem no backend (storagePut para S3)
+- [x] Corrigir N8N_API_KEY expirada — nova chave configurada e validada (status 200, 5 workflows listados)
+- [x] Adicionar capacidade de listar tabelas do Supabase no athosBridge (17 tabelas detectadas via OpenAPI)
+- [x] Adicionar capacidade de consultar dados de qualquer tabela do Supabase via query_supabase_table
+- [x] Adicionar capacidade de contar registros de tabelas via count_supabase_table
+- [x] Atualizar system prompt do Mentor com novas capacidades do Supabase

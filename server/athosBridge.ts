@@ -152,3 +152,119 @@ export async function dispatchAction(action: string, args: Record<string, unknow
       throw new Error(`Ação desconhecida: ${action}. Ações disponíveis: list_workflows, get_workflow, find_workflow, create_workflow, activate_workflow, deactivate_workflow, trigger_webhook`);
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SUPABASE BRIDGE — Consultas diretas ao banco de dados
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SUPABASE_URL = process.env.SUPABASE_URL?.replace(/\/$/, "");
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+const supabaseHeaders = {
+  apikey: SUPABASE_SERVICE_ROLE_KEY ?? "",
+  Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY ?? ""}`,
+  "Content-Type": "application/json",
+};
+
+/**
+ * Lista todas as tabelas públicas do Supabase via OpenAPI schema
+ */
+export async function listSupabaseTables(): Promise<{ name: string; schema: string }[]> {
+  // Usa o endpoint OpenAPI do Supabase que lista todas as tabelas expostas
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/`, {
+    headers: supabaseHeaders,
+  });
+
+  if (!res.ok) throw new Error(`Supabase listTables error: ${res.status} ${await res.text()}`);
+
+  const schema = await res.json() as { paths?: Record<string, unknown> };
+  const paths = Object.keys(schema.paths ?? {}).filter(p => p !== "/" && !p.startsWith("/rpc/"));
+  return paths.map(p => ({ name: p.replace(/^\//, ""), schema: "public" }));
+}
+
+/**
+ * Consulta dados de uma tabela do Supabase com filtros opcionais
+ */
+export async function querySupabaseTable(
+  table: string,
+  options: {
+    select?: string;
+    limit?: number;
+    filter?: string; // ex: "status=eq.active"
+    order?: string;  // ex: "created_at.desc"
+  } = {}
+): Promise<unknown[]> {
+  const params = new URLSearchParams();
+  params.set("select", options.select ?? "*");
+  if (options.limit) params.set("limit", String(options.limit));
+  if (options.filter) {
+    // Suporta múltiplos filtros separados por &
+    options.filter.split("&").forEach(f => {
+      const [key, val] = f.split("=");
+      if (key && val) params.set(key, val);
+    });
+  }
+  if (options.order) params.set("order", options.order);
+
+  const url = `${SUPABASE_URL}/rest/v1/${encodeURIComponent(table)}?${params.toString()}`;
+  const res = await fetch(url, { headers: supabaseHeaders });
+  if (!res.ok) throw new Error(`Supabase query error on '${table}': ${res.status} ${await res.text()}`);
+  return res.json() as Promise<unknown[]>;
+}
+
+/**
+ * Conta registros de uma tabela do Supabase
+ */
+export async function countSupabaseTable(table: string, filter?: string): Promise<number> {
+  const params = new URLSearchParams({ select: "count" });
+  if (filter) {
+    filter.split("&").forEach(f => {
+      const [key, val] = f.split("=");
+      if (key && val) params.set(key, val);
+    });
+  }
+
+  const url = `${SUPABASE_URL}/rest/v1/${encodeURIComponent(table)}?${params.toString()}`;
+  const res = await fetch(url, {
+    headers: { ...supabaseHeaders, Prefer: "count=exact" },
+  });
+  if (!res.ok) throw new Error(`Supabase count error on '${table}': ${res.status} ${await res.text()}`);
+
+  const countHeader = res.headers.get("content-range");
+  if (countHeader) {
+    const match = countHeader.match(/\/(\d+)/);
+    if (match) return parseInt(match[1], 10);
+  }
+  const data = await res.json() as any[];
+  return data.length;
+}
+
+// Adiciona supabase actions ao dispatchAction
+const _originalDispatch = dispatchAction;
+
+/**
+ * Versão estendida do dispatchAction com suporte a Supabase
+ */
+export async function dispatchActionExtended(action: string, args: Record<string, unknown>): Promise<unknown> {
+  switch (action) {
+    case "list_supabase_tables":
+      return listSupabaseTables();
+
+    case "query_supabase_table":
+      return querySupabaseTable(
+        args.table as string,
+        {
+          select: args.select as string | undefined,
+          limit: args.limit as number | undefined,
+          filter: args.filter as string | undefined,
+          order: args.order as string | undefined,
+        }
+      );
+
+    case "count_supabase_table":
+      return countSupabaseTable(args.table as string, args.filter as string | undefined);
+
+    default:
+      return _originalDispatch(action, args);
+  }
+}
