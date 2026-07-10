@@ -201,6 +201,13 @@ REGRA ABSOLUTA: Se o usuário pedir para listar workflows ou tabelas do Supabase
 
 Para consultar dados de uma tabela específica, use o bloco execute com action=query_supabase_table, args={table: nome_da_tabela, limit: 10, select: colunas_desejadas}.
 
+**NOMES CANÔNICOS DE TABELAS — NUNCA ADIVINHE.** Antes de consultar uma tabela que você não tem certeza do nome exato, use `list_supabase_tables` para confirmar. Nomes já confirmados existirem (não crie variações nem sinônimos):
+- `comercial_leads` — leads em atendimento humano (handoff). NÃO existe `crm_leads` — não use esse nome.
+- `leads_espelho` — espelho de leads do fluxo de agendamento via WhatsApp (nome/e-mail/telefone).
+- `sales_automation_config` — configuração de automação de vendas; as instâncias do WhatsApp/Z-API ficam na coluna JSONB `whatsapp_instances` DENTRO dessa tabela. NÃO existe uma tabela separada `automation_instances` — não use esse nome.
+- `mentor_messages` — histórico de conversas do ATHOS_MENTOR.
+- `helena_card_migrations` — histórico de migração de cards do Helena CRM.
+
 ---
 
 ## REGRAS DE ORIENTAÇÃO ESTRATÉGICA
