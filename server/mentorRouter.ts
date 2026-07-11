@@ -181,90 +181,69 @@ Para integrações pontuais com ferramentas externas não listadas (geração de
 
 ## WORKFLOW N8N — MIRAGE_ZAPI_POSTFUNNEL_ROUTER + SENDER
 
-**STATUS (2026-07-11): ENDPOINT DE ENVIO JÁ ESTÁ EM PRODUÇÃO.**
-O `POST /api/internal/zapi/send-message` foi criado e publicado pelo Replit Agent.
-Sua única tarefa agora: substituir o nó `Send via ZAPI` do router pelo HTTP Request para este endpoint.
+**STATUS (2026-07-11): BLOQUEIO CRÍTICO RESOLVIDO.**
+
+### PROBLEMA ATUAL:
+O Z-API só suporta um webhook por evento. O webhook "Ao receber" aponta para n8n, então o Helena deixou de receber as mensagens. Clóvis restaurou temporariamente o webhook para o Helena (`https://webhook.wts.chat/v1/zapi`) para não perder mensagens.
+
+**O que você DEVE fazer antes de Clóvis mudar o webhook de volta para o n8n:**
+Adicionar um nó no início do `MIRAGE_ZAPI_POSTFUNNEL_ROUTER` que encaminha o payload original para o Helena. Assim o n8n fica como intermediário: recebe, encaminha para Helena, depois classifica e responde.
+
+### FLUXO CORRETO COMPLETO (implemente agora):
+
+```
+[Webhook Trigger: POST /mirage-zapi-postfunnel-router]
+        ↓
+[HTTP Request: Forward to Helena]
+  Method: POST
+  URL: https://webhook.wts.chat/v1/zapi
+  Body: {{ $json }}  (repassa o payload inteiro da Z-API)
+  Options: continueOnFail = true  ← OBRIGATÓRIO (não travar se Helena retornar erro)
+        ↓
+[IF: type==="ReceivedCallback" AND isGroup===false AND text.message!=null]
+    → FALSE: [Respond to Webhook: {ok:true,ignored:true}]
+    → TRUE:
+        ↓
+[HTTP Request: GET /api/internal/lead-context?phone={{ $('Webhook Trigger').item.json.phone }}]
+  Header: x-internal-key: <MARKETING_INTERNAL_API_KEY>
+        ↓
+[Switch: classification]
+    → "dormant"                → [HTTP POST /api/internal/zapi/send-message route_type:nurture]  → [Respond:{ok:true}]
+    → "abandoned_before_human" → [HTTP POST /api/internal/zapi/send-message route_type:rescue]   → [Respond:{ok:true}]
+    → "human_active"           → [Respond: {ok:true,action:"suppressed"}]
+    → "awaiting_human"         → [Respond: {ok:true,action:"suppressed"}]
+    → default                  → [Respond: {ok:true,action:"no_action"}]
+```
 
 ### ENDPOINT DE ENVIO (já em produção):
-
 ```
 POST https://clovisart13.replit.app/api/internal/zapi/send-message
 Header: x-internal-key: <MARKETING_INTERNAL_API_KEY>
-Content-Type: application/json
+Body: { "company_slug": "r2pb", "phone": "{{ $('Webhook Trigger').item.json.phone }}", "message": "<texto>", "route_type": "<rota>" }
 ```
 
-**Body exato que o n8n deve enviar:**
-```json
-{
-  "company_slug": "r2pb",
-  "phone": "{{ $('Webhook Trigger').item.json.phone }}",
-  "message": "Oi! Aqui é a R2PB Confecções. 😊 Vi que a gente já conversou antes — tudo certo por aí? Se ainda fizer sentido falar sobre sua produção, fico à disposição!",
-  "route_type": "nurture"
-}
-```
+### TEXTOS:
+- **nurture** (dormant): `Oi! Aqui é a R2PB Confecções. 😊 Vi que a gente já conversou antes — tudo certo por aí? Se ainda fizer sentido falar sobre sua produção, fico à disposição!`
+- **rescue** (abandoned_before_human): `Oi! A R2PB aqui. Vi que você chegou a entrar em contato com a gente mas a gente não chegou a conversar direito. Ainda faz sentido a gente trocar uma ideia sobre sua produção?`
 
-**Resposta de sucesso:**
-```json
-{
-  "success": true,
-  "provider": "zapi",
-  "company_slug": "r2pb",
-  "phone": "5511999999999",
-  "message": "texto enviado",
-  "route_type": "nurture",
-  "provider_response": {}
-}
-```
-
-**Resposta de erro:**
-```json
-{
-  "success": false,
-  "error": "motivo objetivo"
-}
-```
-
-### TEXTOS DAS MENSAGENS:
-
-**route_type "nurture"** (classification: dormant):
-```
-Oi! Aqui é a R2PB Confecções. 😊 Vi que a gente já conversou antes — tudo certo por aí? Se ainda fizer sentido falar sobre sua produção, fico à disposição!
-```
-
-**route_type "rescue"** (classification: abandoned_before_human):
-```
-Oi! A R2PB aqui. Vi que você chegou a entrar em contato com a gente mas a gente não chegou a conversar direito. Ainda faz sentido a gente trocar uma ideia sobre sua produção?
-```
-
-**classification human_active / awaiting_human / unknown** → não enviar nada.
-
-### COMO FECHAR O WORKFLOW (ação imediata):
-
+### SEQUÊNCIA DE AÇÕES (execute agora, sem parar):
 1. `get_n8n_workflow` id `eaohrMEpwHL8wKgI`
-2. Localize o nó `Send via ZAPI` (que tem `PLACEHOLDER_INSTANCE` / `PLACEHOLDER_TOKEN` na URL)
-3. Substitua a URL desse nó por:
-   `https://clovisart13.replit.app/api/internal/zapi/send-message`
-4. Atualize o body para o formato acima (company_slug, phone, message, route_type)
-5. Adicione o header `x-internal-key: <MARKETING_INTERNAL_API_KEY>`
-6. Salve via PUT no workflow existente
-7. Confirme que está ativo (`active: true`)
-8. Instrua Clóvis a mandar "oi" e confirme resposta automática no WhatsApp
+2. Adicione o nó "Forward to Helena" ANTES do IF de classificação
+3. Corrija/adicione os nós de envio de mensagem para as branches dormant e abandoned
+4. Salve (PUT no workflow) e confirme ativo
+5. Avise Clóvis que pode trocar o webhook Z-API de volta para o n8n:
+   `https://clovisart13.app.n8n.cloud/webhook/mirage-zapi-postfunnel-router`
+6. Após Clóvis mudar, instrua a enviar "oi" e confirme: mensagem aparece no Helena E resposta automática volta
 
-### Payload real da Z-API (ReceivedCallback):
+### Payload real da Z-API:
 ```json
-{
-  "phone": "5511999999999",
-  "type": "ReceivedCallback",
-  "isGroup": false,
-  "text": { "message": "oi" }
-}
+{ "phone": "5511999999999", "type": "ReceivedCallback", "isGroup": false, "text": { "message": "oi" } }
 ```
-Expressões n8n: telefone=`{{ $json.phone }}` | texto=`{{ $json.text.message }}` | tipo=`{{ $json.type }}`
+Expressões: `{{ $json.phone }}` | `{{ $json.text.message }}` | `{{ $json.type }}`
 
-### Infraestrutura completa (tudo pronto):
-- Z-API "Ao receber" → n8n ✅
+### Infraestrutura pronta:
 - `GET /api/internal/lead-context` ✅
-- `POST /api/internal/zapi/send-message` ✅ NOVO — em produção desde 2026-07-11
+- `POST /api/internal/zapi/send-message` ✅
 - Credenciais Z-API no Hub ✅
 
 ---
