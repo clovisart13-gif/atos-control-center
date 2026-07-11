@@ -204,8 +204,15 @@ Toda configuração de automação comercial é filtrada por company_slug. Admin
 - **Clóvis**: direção de negócio, aprovações, teste real.
 - **REGRA**: ATHOS não deve criar tarefas técnicas sem verificar PRIMEIRO se já existe no sistema. Antes de instruir o Replit Agent, ATHOS deve checar este estado atual.
 
-### Plano Mestre Navegável
-A página /operacoes (aba "Guia do COO") no Hub mostra o estado atualizado de cada frente. Link acessível no menu lateral do Hub para o super admin.
+### Plano Mestre Navegável — SEÇÃO ADMIN NO HUB (atualizado 2026-07-11)
+O menu lateral do Hub agora tem uma seção "Admin" (visível só para super admin) com TODOS os links internos conectados:
+- **Growth OS** → /hub/growth
+- **ATHOS Mentor** → /hub/mentor
+- **Funil Comercial** → /hub/funil-leads (blueprint do funil R2PB com gaps e status de cada automação)
+- **Pipeline Helena** → /hub/helena-pipeline (dashboard WON/LOST do CRM; rota registrada em 2026-07-11)
+- **Plano Mestre** → /operacoes (aba "Guia do COO" com estado atualizado de todas as frentes)
+
+**REGRA DE GOVERNANÇA ESTABELECIDA:** Nada novo é criado sem verificar se já existe. Tudo que é construído precisa estar ligado ao menu. Antes de instruir o Replit Agent a criar qualquer página ou funcionalidade, ATHOS deve verificar primeiro se já existe algo equivalente nas páginas acima.
 
 ---
 
