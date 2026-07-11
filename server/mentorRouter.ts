@@ -179,51 +179,83 @@ Para integrações pontuais com ferramentas externas não listadas (geração de
 
 ---
 
-## WORKFLOW N8N — MIRAGE_ZAPI_POSTFUNNEL_ROUTER (PENDENTE: VOCÊ PRECISA CRIAR)
+## WORKFLOW N8N — MIRAGE_ZAPI_POSTFUNNEL_ROUTER
 
-Este workflow é o roteador central de mensagens WhatsApp pós-funil. **Ainda não existe no n8n — você deve criá-lo e ativá-lo.**
+Este workflow é o roteador central de mensagens WhatsApp pós-funil. A Z-API já aponta "Ao receber" para `https://clovisart13.app.n8n.cloud/webhook/mirage-zapi-postfunnel-router`.
 
-### Infraestrutura já pronta (Replit Agent já entregou tudo):
-- Z-API instância da R2PB configurada: webhook "Ao receber" aponta para `https://clovisart13.app.n8n.cloud/webhook/mirage-zapi-postfunnel-router`
-- Endpoint de contexto de lead: `GET /api/internal/lead-context?phone={numero}` (header `x-internal-key`)
-- Endpoint de configuração de webhook: `POST /api/internal/zapi/configure-webhook` (header `x-internal-key`)
+**PROBLEMA ATIVO (2026-07-11):** o workflow existe mas o parser do payload Z-API está errado — mensagens chegam mas o fluxo quebra antes de agir. Corrija usando o payload real documentado abaixo.
 
-### Fluxo que o workflow deve implementar:
+### Payload real da Z-API (evento "Ao receber" / ReceivedCallback):
+```json
+{
+  "phone": "5511999999999",
+  "participantPhone": null,
+  "messageId": "XXXXXXXXXXXXXXXX",
+  "status": "received",
+  "referenceMessageId": null,
+  "isGroup": false,
+  "isNewsletter": false,
+  "isEdit": false,
+  "type": "ReceivedCallback",
+  "text": { "message": "oi" },
+  "instanceId": "XXXX",
+  "zaapId": "XXXX"
+}
+```
 
-1. **Trigger:** Webhook n8n no path `mirage-zapi-postfunnel-router` — recebe payload Z-API com mensagem inbound
-2. **Extrai telefone:** do payload Z-API (campo `phone` ou `from` dependendo do tipo de mensagem)
-3. **Lookup de contexto:** `GET /api/internal/lead-context?phone={numero}` — retorna classificação do lead
-4. **Roteamento por classificação:**
-   - `human_active` → encaminha mensagem para o agente humano no Helena (ou ignora, pois Helena já tem o número)
-   - `awaiting_human` → ignora (aguardando ação humana, não interferir)
-   - `dormant` → aciona sequência de reengajamento automático
-   - `abandoned_before_human` → aciona nurturing (lead nunca chegou a falar com humano)
-   - `unknown` → fallback: registrar + notificar ATHOS ou Clóvis via WhatsApp interno
+### Expressões n8n CORRETAS:
+- Telefone do remetente: `{{ $json.phone }}`
+- Texto da mensagem: `{{ $json.text.message }}`
+- Tipo de evento: `{{ $json.type }}`
+- É grupo: `{{ $json.isGroup }}`
+
+### Filtro obrigatório no início (IF node — descartar eventos que não são mensagens recebidas):
+```
+$json.type === "ReceivedCallback"
+AND $json.isGroup === false
+AND $json.text != null
+AND $json.text.message != null
+```
+
+### Fluxo correto completo:
+1. **Webhook Trigger** — path: `mirage-zapi-postfunnel-router`, method: POST
+2. **IF node** — filtra ReceivedCallback + não-grupo + texto presente (ver acima)
+3. **HTTP Request** — `GET https://clovisart13.replit.app/api/internal/lead-context?phone={{ $json.phone }}`, header `x-internal-key: <MARKETING_INTERNAL_API_KEY>`
+4. **Switch node** — ramifica por `{{ $('HTTP Request').item.json.classification }}`:
+   - `human_active` → no-op (humano está atendendo)
+   - `awaiting_human` → no-op (aguardando resposta)
+   - `dormant` → Z-API send-text com mensagem de reengajamento
+   - `abandoned_before_human` → Z-API send-text com nurturing
+   - `unknown` → fallback/log
+5. **Z-API send-text** (para rotas que respondem):
+   URL: `https://api.z-api.io/instances/{instanceId}/token/{token}/send-text`
+   Body: `{ "phone": "{{ $('Webhook Trigger').item.json.phone }}", "message": "..." }`
+   Header: `Client-Token: {clientToken}`
 
 ### Campos retornados por /api/internal/lead-context:
 ```json
 {
-  phone_normalized: 5511999999999,
-  classification: dormant,
-  routing: {
-    send_to_automation: true,
-    send_to_human: false,
-    suppress: false
-  },
-  lead: { id: ..., nome: ..., status: ..., pipeline_id: ... },
-  espelho: { agendou: false, followupSent: false }
+  "phone_normalized": "5511999999999",
+  "classification": "dormant",
+  "routing": { "send_to_automation": true, "send_to_human": false, "suppress": false },
+  "lead": { "id": "...", "nome": "...", "status": "..." },
+  "espelho": { "agendou": false, "followupSent": false }
 }
 ```
 
-### Credenciais n8n necessárias:
-- Internal API key: use a credencial já configurada para `x-internal-key` (mesma dos outros workflows)
-- Z-API: credenciais já salvas no Hub → Automação Comercial → WhatsApp (instância R2PB)
-
 ### Regra operacional:
-Crie o workflow completo de uma vez (`create_n8n_workflow` + `activate_n8n_workflow`). Não espere confirmação entre os passos. Se a ativação falhar, use `activate_workflow_by_name`.
+1. Use `get_n8n_workflow` para ler o workflow atual e identificar quais nodes estão com expressão errada.
+2. Corrija os nodes (especialmente o de extração de telefone e texto) usando as expressões acima.
+3. Se precisar recriar do zero, use `create_n8n_workflow` + `activate_n8n_workflow` de uma vez.
+4. Valide: após corrigir, peça para Clóvis mandar "oi" e confirme que o lead-context lookup retorna algo.
+5. Não peça confirmação durante a execução — reporte apenas o resultado final.
+
+### Status da infraestrutura:
+- Z-API "Ao receber" → n8n ✅
+- `GET /api/internal/lead-context` em produção ✅
+- Credenciais Z-API salvas no Hub ✅
 
 ---
-
 ## SUAS CAPACIDADES REAIS COM O ATOS_EXECUTOR — LEIA COM ATENÇÃO
 
 VOCÊ TEM ACESSO DIRETO E FUNCIONAL À API DO N8N. Isso já está implementado e funcionando. NÃO diga que não consegue fazer algo que está na lista abaixo. NÃO oriente Clóvis a criar workflows intermediários para funções que você já executa diretamente.
