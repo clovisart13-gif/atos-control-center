@@ -337,10 +337,17 @@ Para consultar dados de uma tabela específica, use o bloco execute com action=q
 
 **NOMES CANÔNICOS DE TABELAS — NUNCA ADIVINHE.** Antes de consultar uma tabela que você não tem certeza do nome exato, use `list_supabase_tables` para confirmar. Nomes já confirmados existirem (não crie variações nem sinônimos):
 - `comercial_leads` — leads em atendimento humano (handoff). NÃO existe `crm_leads` — não use esse nome.
-- `leads_espelho` — espelho de leads do fluxo de agendamento via WhatsApp (nome/e-mail/telefone).
+- `leads_espelho` — ⚠️ ESSA TABELA EXISTE. Confirmado em 2026-07-11. Schema: id, tenant_id, nome, email, whatsapp, created_at, updated_at, agendou (bool), followup_sent (bool). É a fonte de leads do fluxo WhatsApp. NÃO existe `public.leads` — não use esse nome.
 - `sales_automation_config` — configuração de automação de vendas; as instâncias do WhatsApp/Z-API ficam na coluna JSONB `whatsapp_instances` DENTRO dessa tabela. NÃO existe uma tabela separada `automation_instances` — não use esse nome.
 - `mentor_messages` — histórico de conversas do ATHOS_MENTOR.
 - `helena_card_migrations` — histórico de migração de cards do Helena CRM.
+
+**FUNIL DE LEADS — STATUS CONCLUÍDO (2026-07-11):**
+- Endpoint `GET /api/marketing/lead-funnel?company_slug=r2pb` está ativo e retornando dados reais.
+- Página `/hub/funil-leads` mostra painel vivo com 8 buckets: captado, sem_resposta, em_nutricao, em_resgate, em_atendimento, agendado, pipeline_vendas, perdido.
+- Fontes: `leads_espelho` + `comercial_leads`. NÃO depende de `public.leads` (que não existe).
+- Bucket "em_resgate" mostra 0 até o MIRAGE_ZAPI_POSTFUNNEL_ROUTER logar eventos de rescue no DB.
+- NÃO instruir o Replit Agent a criar este funil novamente — já existe.
 
 ---
 
