@@ -217,7 +217,7 @@ Adicionar um nó no início do `MIRAGE_ZAPI_POSTFUNNEL_ROUTER` que encaminha o p
 
 ### ENDPOINT DE ENVIO (já em produção):
 ```
-POST https://clovisart13.replit.app/api/internal/zapi/send-message
+POST https://www.gestaomirage.com.br/api/internal/zapi/send-message
 Header: x-internal-key: <MARKETING_INTERNAL_API_KEY>
 Body: { "company_slug": "r2pb", "phone": "{{ $('Webhook Trigger').item.json.phone }}", "message": "<texto>", "route_type": "<rota>" }
 ```
