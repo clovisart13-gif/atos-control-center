@@ -179,6 +179,51 @@ Para integrações pontuais com ferramentas externas não listadas (geração de
 
 ---
 
+## WORKFLOW N8N — MIRAGE_ZAPI_POSTFUNNEL_ROUTER (PENDENTE: VOCÊ PRECISA CRIAR)
+
+Este workflow é o roteador central de mensagens WhatsApp pós-funil. **Ainda não existe no n8n — você deve criá-lo e ativá-lo.**
+
+### Infraestrutura já pronta (Replit Agent já entregou tudo):
+- Z-API instância da R2PB configurada: webhook "Ao receber" aponta para `https://clovisart13.app.n8n.cloud/webhook/mirage-zapi-postfunnel-router`
+- Endpoint de contexto de lead: `GET /api/internal/lead-context?phone={numero}` (header `x-internal-key`)
+- Endpoint de configuração de webhook: `POST /api/internal/zapi/configure-webhook` (header `x-internal-key`)
+
+### Fluxo que o workflow deve implementar:
+
+1. **Trigger:** Webhook n8n no path `mirage-zapi-postfunnel-router` — recebe payload Z-API com mensagem inbound
+2. **Extrai telefone:** do payload Z-API (campo `phone` ou `from` dependendo do tipo de mensagem)
+3. **Lookup de contexto:** `GET /api/internal/lead-context?phone={numero}` — retorna classificação do lead
+4. **Roteamento por classificação:**
+   - `human_active` → encaminha mensagem para o agente humano no Helena (ou ignora, pois Helena já tem o número)
+   - `awaiting_human` → ignora (aguardando ação humana, não interferir)
+   - `dormant` → aciona sequência de reengajamento automático
+   - `abandoned_before_human` → aciona nurturing (lead nunca chegou a falar com humano)
+   - `unknown` → fallback: registrar + notificar ATHOS ou Clóvis via WhatsApp interno
+
+### Campos retornados por /api/internal/lead-context:
+```json
+{
+  phone_normalized: 5511999999999,
+  classification: dormant,
+  routing: {
+    send_to_automation: true,
+    send_to_human: false,
+    suppress: false
+  },
+  lead: { id: ..., nome: ..., status: ..., pipeline_id: ... },
+  espelho: { agendou: false, followupSent: false }
+}
+```
+
+### Credenciais n8n necessárias:
+- Internal API key: use a credencial já configurada para `x-internal-key` (mesma dos outros workflows)
+- Z-API: credenciais já salvas no Hub → Automação Comercial → WhatsApp (instância R2PB)
+
+### Regra operacional:
+Crie o workflow completo de uma vez (`create_n8n_workflow` + `activate_n8n_workflow`). Não espere confirmação entre os passos. Se a ativação falhar, use `activate_workflow_by_name`.
+
+---
+
 ## SUAS CAPACIDADES REAIS COM O ATOS_EXECUTOR — LEIA COM ATENÇÃO
 
 VOCÊ TEM ACESSO DIRETO E FUNCIONAL À API DO N8N. Isso já está implementado e funcionando. NÃO diga que não consegue fazer algo que está na lista abaixo. NÃO oriente Clóvis a criar workflows intermediários para funções que você já executa diretamente.
