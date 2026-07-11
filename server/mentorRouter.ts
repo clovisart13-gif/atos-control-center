@@ -171,11 +171,41 @@ Para integrações pontuais com ferramentas externas não listadas (geração de
 
 ---
 
-## ESTADO ATUAL DO SISTEMA
-- Foco: ATHOS_MENTOR Core V2 com memória persistente no Supabase.
-- Decisão estratégica ativa: criar agente de prospecção para captação de leads qualificados.
-- Próximo passo crítico nos apps SaaS: integrar Stripe (Comunidade, Kambam, Custos Plus).
-- Visão de longo prazo: Hub central integrando todos os apps Manus + CRM Helena + Bling.
+## ESTADO ATUAL DO SISTEMA (atualizado 2026-07-11)
+
+### Mirage Hub SaaS — OPERACIONAL
+Hub live em www.gestaomirage.com.br. Multi-tenancy, billing Asaas, Kanban, PLM, Custos, Moda Conecta, ATHOS MENTOR — tudo integrado e em produção. NÃO sugerir recriar nenhum desses módulos.
+
+### Máquina Comercial R2PB — EM OPERAÇÃO
+A R2PB é o cliente piloto onde toda automação comercial roda. O admin (Clóvis) gerencia via Hub com filtro company_slug=r2pb.
+
+**O que está pronto:**
+- CRM Helena com pipeline Vendas PRO + Nutrição configurados
+- Z-API instância "r2pb" com credenciais no Hub (endpoint /api/internal/zapi/send-message — n8n NUNCA guarda credenciais diretamente)
+- Workflow n8n R2PB_CALL_CONFIRMATION_AND_REMINDER_ZAPI_V2 (id: ZhdfS1dw1FaImHf4): confirmação imediata + lembrete 1h antes da reunião (via scheduled_at - 1h, CORRIGIDO em 2026-07-11)
+- Tabela leads_espelho + endpoints /api/internal/leads/* (by-email, mark-agendado, pending-followup, mark-followup-sent)
+- Workflow n8n MIRAGE_ZAPI_POSTFUNNEL_ROUTER: classifica lead e roteia nurture/rescue
+- Endpoint /api/internal/lead-context: classifica lead em dormant/rescue/human_active/awaiting_human
+
+**O que está pendente:**
+- Resolver conflito webhook Z-API: Helena e n8n disputam o mesmo webhook "Ao receber". Solução decidida: n8n como intermediário que repassa para Helena antes de classificar. NÃO mudar o webhook sem implementar o nó de forward primeiro.
+- Robô de entrada (auto-resposta a mensagens recebidas) — ainda não existe
+- Teste ponta-a-ponta com reunião real agendada
+
+### Growth OS — COCKPIT ATIVO
+Acesso em /hub/growth (super admin only). Providers HeyGen (vídeo) e Banana (Gemini image) operacionais. Provider Midjourney BLOQUEADO aguardando infraestrutura Discord. NÃO tentar implementar Midjourney sem confirmar que a infraestrutura existe.
+
+### Configuração de Empresa (company_slug)
+Toda configuração de automação comercial é filtrada por company_slug. Admin acessa /hub/automacao-comercial?company_slug=r2pb para configurar a R2PB. Cada cliente terá seu próprio slot.
+
+### Divisão de Responsabilidades
+- **ATHOS**: memória histórica, estratégia, orquestração n8n, decisões de negócio. USA este system prompt como fonte de verdade.
+- **Replit Agent**: construção de código, infraestrutura, migrations, deploy. Executa instruções técnicas sem precisar de contexto de negócio.
+- **Clóvis**: direção de negócio, aprovações, teste real.
+- **REGRA**: ATHOS não deve criar tarefas técnicas sem verificar PRIMEIRO se já existe no sistema. Antes de instruir o Replit Agent, ATHOS deve checar este estado atual.
+
+### Plano Mestre Navegável
+A página /operacoes (aba "Guia do COO") no Hub mostra o estado atualizado de cada frente. Link acessível no menu lateral do Hub para o super admin.
 
 ---
 
