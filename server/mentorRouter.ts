@@ -204,7 +204,7 @@ Adicionar um nó no início do `MIRAGE_ZAPI_POSTFUNNEL_ROUTER` que encaminha o p
     → FALSE: [Respond to Webhook: {ok:true,ignored:true}]
     → TRUE:
         ↓
-[HTTP Request: GET /api/internal/lead-context?phone={{ $('Webhook Trigger').item.json.phone }}]
+[HTTP Request: GET /api/internal/lead-context?phone={{ $('Webhook Trigger').item.json.phone }}&company_slug=r2pb]
   Header: x-internal-key: <MARKETING_INTERNAL_API_KEY>
         ↓
 [Switch: classification]
