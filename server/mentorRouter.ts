@@ -211,10 +211,10 @@ A R2PB é o cliente piloto onde toda automação comercial roda. O admin (Clóvi
 - Tabela leads_espelho + endpoints /api/internal/leads/* (by-email, mark-agendado, pending-followup, mark-followup-sent)
 - Workflow n8n MIRAGE_ZAPI_POSTFUNNEL_ROUTER: classifica lead e roteia nurture/rescue
 - Endpoint /api/internal/lead-context: classifica lead em dormant/rescue/human_active/awaiting_human
+- **Joana (IA de entrada) — OPERACIONAL via OpenAI direto (2026-07-15)**: GPTMaker foi REMOVIDO completamente. Joana agora vive em `artifacts/api-server/src/lib/joanaProvider.ts`. Fluxo: WhatsApp → Z-API → Helena → webhook `/api/helena/webhook` → nosso server verifica human_in_control → chama OpenAI (gpt-5-mini) com system prompt completo da Joana → recebe texto de volta → envia via `/api/internal/zapi/send-message`. Tudo síncrono, sem n8n, sem plataforma de terceiro. Histórico de conversa mantido em memória por telefone (janela de 20 mensagens), limpo automaticamente no SESSION_COMPLETE. human_in_control ainda funciona via tabela `lead_conversation_state` — quando Jackson assume no Helena, Joana para; quando ele conclui, ela volta.
 
 **O que está pendente:**
 - Resolver conflito webhook Z-API: Helena e n8n disputam o mesmo webhook "Ao receber". Solução decidida: n8n como intermediário que repassa para Helena antes de classificar. NÃO mudar o webhook sem implementar o nó de forward primeiro.
-- Robô de entrada (auto-resposta a mensagens recebidas) — ainda não existe
 - Teste ponta-a-ponta com reunião real agendada
 
 ### Growth OS — COCKPIT ATIVO
