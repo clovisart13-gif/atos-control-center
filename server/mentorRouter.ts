@@ -211,11 +211,26 @@ A R2PB é o cliente piloto onde toda automação comercial roda. O admin (Clóvi
 - Tabela leads_espelho + endpoints /api/internal/leads/* (by-email, mark-agendado, pending-followup, mark-followup-sent)
 - Workflow n8n MIRAGE_ZAPI_POSTFUNNEL_ROUTER: classifica lead e roteia nurture/rescue
 - Endpoint /api/internal/lead-context: classifica lead em dormant/rescue/human_active/awaiting_human
-- **Joana (IA de entrada) — OPERACIONAL via OpenAI direto (2026-07-15)**: GPTMaker foi REMOVIDO completamente. Joana agora vive em `artifacts/api-server/src/lib/joanaProvider.ts`. Fluxo: WhatsApp → Z-API → Helena → webhook `/api/helena/webhook` → nosso server verifica human_in_control → chama OpenAI (gpt-5-mini) com system prompt completo da Joana → recebe texto de volta → envia via `/api/internal/zapi/send-message`. Tudo síncrono, sem n8n, sem plataforma de terceiro. Histórico de conversa mantido em memória por telefone (janela de 20 mensagens), limpo automaticamente no SESSION_COMPLETE. human_in_control ainda funciona via tabela `lead_conversation_state` — quando Jackson assume no Helena, Joana para; quando ele conclui, ela volta.
+- **Joana (IA de entrada) — OPERACIONAL via OpenAI direto (2026-07-16)**: GPTMaker removido. Joana = `artifacts/api-server/src/lib/joanaProvider.ts` (gpt-4o-mini + function calling). Fluxo: WhatsApp → Z-API → Helena webhook → server verifica human_in_control → OpenAI gera resposta → Z-API envia ao lead. Síncrono, sem n8n.
 
-**O que está pendente:**
-- Resolver conflito webhook Z-API: Helena e n8n disputam o mesmo webhook "Ao receber". Solução decidida: n8n como intermediário que repassa para Helena antes de classificar. NÃO mudar o webhook sem implementar o nó de forward primeiro.
-- Teste ponta-a-ponta com reunião real agendada
+**Comportamento atual da Joana (VALIDADO em dev 2026-07-16):**
+- Uma pergunta por vez, resposta natural de WhatsApp, NÃO formulário
+- Threshold PRO: volume >= 72 pecas E investimento > R$ 3.000
+- Quando identifica PRO: aciona function calling `encaminhar_jackson` → envia "Jackson vai dar continuidade em breve" ao lead
+- Quando identifica BASIC/STARTER: orienta autoatendimento
+- Quando reclamacao/suporte: informa que alguem do time vai verificar — SEM pipeline, apenas transferencia humana
+- Jackson assume no Helena → Joana silencia; Jackson conclui → Joana volta (via `lead_conversation_state`)
+- Historico por telefone (janela 20 mensagens), limpo no SESSION_COMPLETE
+
+**PENDENTE — aguardando instrucao do ATHOS para o Replit Agent:**
+- Criacao automatica de card no Helena quando Joana classifica como PRO (pipeline Venda PRO, step `b6eea3b1-7832-4ea7-bd67-a0f35bee1298` ja mapeado)
+- Criacao automatica de card quando classifica como BASIC/STARTER (step ID do pipeline Basic a confirmar com Clovis)
+- Funcao `criarCardHelena` ja existe em `gptmaker-webhook.ts` linha 323 — reutilizar, nao recriar
+- Suporte/reclamacao NAO cria card de pipeline — so transferencia humana (confirmado por Clovis)
+
+**O que estava pendente anterior:**
+- Resolver conflito webhook Z-API: Helena e n8n disputam o mesmo webhook. Solucao: n8n como intermediario que repassa para Helena. NAO mudar o webhook sem implementar o no de forward primeiro.
+
 
 ### Growth OS — COCKPIT ATIVO
 Acesso em /hub/growth (super admin only). Providers HeyGen (vídeo) e Banana (Gemini image) operacionais. Provider Midjourney BLOQUEADO aguardando infraestrutura Discord. NÃO tentar implementar Midjourney sem confirmar que a infraestrutura existe.
