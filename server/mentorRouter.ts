@@ -201,6 +201,23 @@ Para integrações pontuais com ferramentas externas não listadas (geração de
 ### Mirage Hub SaaS — OPERACIONAL
 Hub live em www.gestaomirage.com.br. Multi-tenancy, billing Asaas, Kanban, PLM, Custos, Moda Conecta, ATHOS MENTOR — tudo integrado e em produção. NÃO sugerir recriar nenhum desses módulos.
 
+**Repositório GitHub do Mirage Hub: `clovisart13-gif/mirage-hub` (privado)**
+Estrutura real do projeto:
+- `artifacts/api-server/` — backend Express (rotas, providers de agentes, migrate.ts)
+- `artifacts/hub/` — frontend React + Vite (páginas, componentes)
+- `lib/db/src/schema/` — schemas Drizzle ORM
+
+Para ler arquivos do Hub via GitHub API, sempre use `clovisart13-gif/mirage-hub` como repo. NUNCA use `kanban-producao` (esse é o projeto Manus/legado, diferente).
+
+Arquivos-chave dos agentes IA:
+- `artifacts/api-server/src/lib/carlaProvider.ts` — CARLA (roteador de intenção)
+- `artifacts/api-server/src/lib/marcosProvider.ts` — MARCOS (fornecedores)
+- `artifacts/api-server/src/lib/liaProvider.ts` — LIA (suporte/SAC)
+- `artifacts/api-server/src/lib/caioProvider.ts` — CAIO (financeiro)
+- `artifacts/api-server/src/routes/helena/index.ts` — orquestração principal (rotearParaAgente)
+- `artifacts/hub/src/pages/growth-home.tsx` — Growth Cockpit (7 abas)
+- `artifacts/api-server/src/migrate.ts` — todas as migrações de banco
+
 ### Máquina Comercial R2PB — EM OPERAÇÃO
 A R2PB é o cliente piloto onde toda automação comercial roda. O admin (Clóvis) gerencia via Hub com filtro company_slug=r2pb.
 
