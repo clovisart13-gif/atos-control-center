@@ -229,6 +229,16 @@ A R2PB é o cliente piloto onde toda automação comercial roda. O admin (Clóvi
 - Workflow n8n MIRAGE_ZAPI_POSTFUNNEL_ROUTER: classifica lead e roteia nurture/rescue
 - Endpoint /api/internal/lead-context: classifica lead em dormant/rescue/human_active/awaiting_human
 - **Joana (IA de entrada) — OPERACIONAL via OpenAI direto (2026-07-16)**: GPTMaker removido. Joana = `artifacts/api-server/src/lib/joanaProvider.ts` (gpt-4o-mini + function calling). Fluxo: WhatsApp → Z-API → Helena webhook → server verifica human_in_control → OpenAI gera resposta → Z-API envia ao lead. Síncrono, sem n8n.
+- **Portal de Triagem R2PB — OPERACIONAL (2026-07-17)**: Formulário progressivo em `/onboarding-portal/diagnostico` (público, sem autenticação). 4 caminhos na tela inicial:
+  - 👕 "Tenho uma marca" → triagem de 9 etapas → classificação → card no Helena (apenas aprovados)
+  - 🧵 "Sou fornecedor/ateliê" → formulário simples → salvo em `triagem_r2pb` com classificacao="fornecedor"
+  - 💼 "Já sou cliente" → tela de redirect → botão WhatsApp `5511992679826`
+  - 💬 "Outro assunto" → campo de texto livre → salvo em `triagem_r2pb` com classificacao="outros"
+  - Tela de confirmação dos **aprovados** exibe botão "Agendar reunião no Google Calendar": `https://calendar.app.google/nAk76XsPkav8wYK16`
+  - Lógica de classificação: hard disqualifiers (tipoPerfil=explorando, publicoAlvo=cd, temCnpj=nao, investimento<3k) → fora_de_perfil imediato; score ≥60 → aprovado; score ≥20 → nutricao
+  - Card no Helena criado somente para aprovados sem card existente (nunca duplica)
+- **Endpoint de lookup R2PB**: `POST /api/internal/r2pb/lookup` (header x-internal-key) — consulta `plm_clientes → plm_fornecedores → triagem_r2pb → comercial_leads` nessa ordem; retorna status/nome/classificacao/score/helena_card_id/origem. Normaliza telefone com regex (remove não-dígitos, strip 55 de números 12-13 dígitos). Cachear resultado em lead_conversation_state após primeira consulta para não repetir execuções n8n.
+- **Etiquetas triagem_r2pb**: classificacao pode ser "aprovado" | "nutricao" | "fora_de_perfil" | "fornecedor" | "outros" — filtrar por coluna para separar categorias no Hub.
 
 **Comportamento atual da Joana (VALIDADO em dev 2026-07-16):**
 - Uma pergunta por vez, resposta natural de WhatsApp, NÃO formulário
