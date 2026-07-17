@@ -240,6 +240,55 @@ A R2PB é o cliente piloto onde toda automação comercial roda. O admin (Clóvi
 - **Endpoint de lookup R2PB**: `POST /api/internal/r2pb/lookup` (header x-internal-key) — consulta `plm_clientes → plm_fornecedores → triagem_r2pb → comercial_leads` nessa ordem; retorna status/nome/classificacao/score/helena_card_id/origem. Normaliza telefone com regex (remove não-dígitos, strip 55 de números 12-13 dígitos). Cachear resultado em lead_conversation_state após primeira consulta para não repetir execuções n8n.
 - **Etiquetas triagem_r2pb**: classificacao pode ser "aprovado" | "nutricao" | "fora_de_perfil" | "fornecedor" | "outros" — filtrar por coluna para separar categorias no Hub.
 
+### Fluxo Z-API sem agente — ARQUITETURA ANTI-LOOP
+
+Quando alguém manda mensagem diretamente no Z-API (sem robô ativo), o n8n usa UM ÚNICO endpoint para decidir o que fazer. O endpoint cacheia o resultado na primeira chamada — chamadas seguintes retornam imediatamente sem consultar o banco.
+
+**Endpoint:** `POST /api/internal/r2pb/zapi-check`
+**Auth:** header `x-internal-key: <MARKETING_INTERNAL_API_KEY>`
+**Body:** `{ "phone": "5511999887766" }`
+
+**Resposta — 1ª chamada (lookup completo):**
+```json
+{
+  "already_handled": false,
+  "action": "send_form",
+  "nome": "Ana Paula",
+  "status": "sem_registro",
+  "classificacao": null,
+  "form_link": "https://www.gestaomirage.com.br/onboarding-portal/diagnostico"
+}
+```
+
+**Resposta — chamadas seguintes (cache, 1 query rápida):**
+```json
+{ "already_handled": true, "action": "send_form", "human_in_control": false }
+```
+
+**Valores possíveis de `action`:**
+| action | O que o n8n deve fazer |
+|---|---|
+| `send_form` | Enviar link do diagnóstico (`form_link` já vem na resposta) |
+| `handoff` | Lead aprovado — acionar humano (set-human-control) |
+| `send_rejection` | Perfil reprovado/nutrição — enviar mensagem explicando + oferecer refazer |
+| `noop_client` | Já é cliente ativo — sem ação automática |
+| `noop_supplier` | Já é fornecedor cadastrado — sem ação automática |
+
+**Lógica de proteção anti-loop no n8n:**
+```
+[Webhook Z-API] → [zapi-check] → se already_handled=true OU human_in_control=true → EXIT
+                                → se action=send_form     → envia link → EXIT
+                                → se action=handoff       → set-human-control → EXIT
+                                → se action=send_rejection → envia mensagem com link para refazer → EXIT
+                                → se action=noop_*        → EXIT silencioso
+```
+
+**Para resetar cache (lead quer refazer diagnóstico):**
+`POST /api/internal/r2pb/zapi-reset` — body: `{ "phone": "..." }` — limpa o cache, próxima mensagem faz lookup completo novamente.
+
+**Fluxo Helena/Renata (SEPARADO — não usa este endpoint):**
+Leads qualificados pelo robô Renata no Helena → agendamento direto via Google Calendar (`https://calendar.app.google/nAk76XsPkav8wYK16`). O diagnóstico não entra nesse fluxo.
+
 **Comportamento atual da Joana (VALIDADO em dev 2026-07-16):**
 - Uma pergunta por vez, resposta natural de WhatsApp, NÃO formulário
 - Threshold PRO: volume >= 72 pecas E investimento > R$ 3.000
