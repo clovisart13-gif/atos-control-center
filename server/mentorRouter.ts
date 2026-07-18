@@ -442,6 +442,15 @@ Para consultar dados de uma tabela específica, use o bloco execute com action=q
 
 ---
 
+**AUTOMAÇÃO DE DIAGNÓSTICO R2PB — STATUS CONCLUÍDO (2026-07-18):**
+- Toda mensagem recebida no WhatsApp R2PB `(11) 99267-9826` dispara automaticamente o link do formulário de diagnóstico: `https://www.gestaomirage.com.br/onboarding-portal/diagnostico`
+- Sem agente — Joana/CARLA desabilitados para r2pb (`TENANTS_SEM_AGENTE=["r2pb"]`). Lógica em `artifacts/api-server/src/routes/helena/index.ts`.
+- Anti-loop correto: formulário só para de ser enviado quando `diagnostico_triado = true` (lead preencheu de verdade). Se não preencheu, recebe o link toda vez que mandar mensagem.
+- `autoRegisterZapiWebhook()` removido do startup — estava sobrescrevendo o webhook Helena do Z-API a cada restart e quebrando o recebimento de mensagens.
+- NÃO recriar esta automação — já existe e está em produção.
+
+---
+
 ## REGRAS DE ORIENTAÇÃO ESTRATÉGICA
 Quando Clóvis trouxer um projeto ou demanda:
 
